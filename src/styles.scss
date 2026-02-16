@@ -1,0 +1,274 @@
+@use '@angular/material' as mat;
+
+/* ==================================================
+   1) Material Core
+================================================== */
+@include mat.core();
+
+/* ==================================================
+   2) Light Blue + Neutral Theme
+================================================== */
+
+$primary: mat.define-palette(mat.$blue-palette, 400);
+$accent:  mat.define-palette(mat.$blue-palette, 200);
+$warn:    mat.define-palette(mat.$red-palette);
+
+$theme: mat.define-light-theme((
+  color: (
+    primary: $primary,
+    accent: $accent,
+    warn: $warn,
+  ),
+  typography: mat.define-typography-config(
+    $font-family: 'Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif'
+  ),
+  density: 0
+));
+
+@include mat.all-component-themes($theme);
+
+/* ==================================================
+   3) App Tokens
+================================================== */
+
+:root {
+  --bg: #e6f0fa;        /* soft light blue */
+  --panel: #f9fbfd;     /* soft cream */
+  --panel2: #f3f6f9;
+  --border: #dbe3ec;
+  --text-main: #1f2937;
+  --text-soft: #6b7280;
+  --shadow-soft: 0 4px 18px rgba(0, 0, 0, 0.06);
+}
+
+/* ==================================================
+   4) Base Layout
+================================================== */
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text-main);
+  line-height: 1.55;   /* 👈 improves readability */
+}
+
+.page {
+  padding: 24px 28px;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: var(--shadow-soft);
+  min-width: 0;
+}
+
+/* ==================================================
+   5) Grid System
+================================================== */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+
+.col-12 { grid-column: span 12; }
+.col-9  { grid-column: span 9; }
+.col-8  { grid-column: span 8; }
+.col-6  { grid-column: span 6; }
+.col-4  { grid-column: span 4; }
+.col-3  { grid-column: span 3; }
+.col-2  { grid-column: span 2; }
+
+@media (max-width: 1000px) {
+  .col-12,
+  .col-9,
+  .col-8,
+  .col-6,
+  .col-4,
+  .col-3,
+  .col-2 {
+    grid-column: span 12;
+  }
+}
+
+/* ==================================================
+   6) Typography Spacing (FIXES TIGHT TEXT)
+================================================== */
+
+.page-header {
+  margin-bottom: 32px;
+}
+
+.page-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 8px;   /* 👈 spacing under titles */
+  letter-spacing: 0.3px;
+}
+
+.page-subtitle {
+  font-size: 14px;
+  color: var(--text-soft);
+  margin-bottom: 18px;  /* 👈 space under subtitle */
+}
+
+.card h2,
+.card h3 {
+  margin-bottom: 12px;
+}
+
+.card p {
+  margin-bottom: 14px;
+}
+
+.card .stat-value {
+  margin-bottom: 10px;
+}
+
+/* ==================================================
+   7) Buttons + Icons Spacing
+================================================== */
+
+button mat-icon {
+  margin-right: 8px;   /* 👈 space between icon + text */
+}
+
+.page-header button {
+  margin-right: 12px;
+}
+
+.page-header button:last-child {
+  margin-right: 0;
+}
+
+/* ==================================================
+   8) Sidebar Improvements
+================================================== */
+
+.mat-mdc-list-item {
+  padding-top: 16px !important;
+  padding-bottom: 16px !important;
+  border-radius: 12px;
+  margin: 6px 10px;
+  transition: background 0.2s ease;
+}
+
+.mat-mdc-list-item .mat-icon {
+  margin-right: 14px;
+  font-size: 22px;
+}
+
+.mat-mdc-list-item .mdc-list-item__content {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.mat-mdc-list-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.mat-mdc-list-item.mdc-list-item--activated {
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+/* ==================================================
+   9) Chips (Oval Buttons) Spacing + Alignment
+================================================== */
+
+.mat-mdc-chip,
+.mat-mdc-chip-option {
+  min-height: 40px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+
+.mat-mdc-chip .mdc-evolution-chip__action,
+.mat-mdc-chip-option .mdc-evolution-chip__action {
+  display: inline-flex !important;
+  align-items: center !important;
+  padding-inline: 18px !important; /* 👈 breathing room */
+  gap: 10px !important;
+}
+
+.mat-mdc-chip .mdc-evolution-chip__text-label,
+.mat-mdc-chip-option .mdc-evolution-chip__text-label {
+  display: inline-flex !important;
+  align-items: center !important;
+  line-height: 1.2 !important;
+}
+
+/* ==================================================
+   10) Forms Spacing
+================================================== */
+
+mat-form-field {
+  margin-bottom: 18px;
+}
+
+mat-chip-listbox {
+  margin-top: 12px;
+  margin-bottom: 16px;
+}
+
+/* ==================================================
+   11) Rows & Tables Spacing
+================================================== */
+
+.row {
+  display: flex;
+  gap: 14px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.legend-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 14px;
+}
+
+.dot,
+.badge,
+.todo-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  margin-top: 6px;
+}
+
+.todo-dot {
+  background: rgba(0,0,0,0.25);
+}
+
+/* ==================================================
+   12) Material Surface Tweaks
+================================================== */
+
+.mat-mdc-card {
+  background: var(--panel) !important;
+  border: 1px solid var(--border);
+}
+
+.mat-mdc-dialog-surface {
+  background: #ffffff !important;
+  color: var(--text-main) !important;
+}
+
+.mdc-text-field--filled:not(.mdc-text-field--disabled) {
+  background: var(--panel2) !important;
+}
