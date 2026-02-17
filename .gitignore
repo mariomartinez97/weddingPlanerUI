@@ -1,2 +1,6 @@
 /node_modules/*
 /.angular/*
+src/app/core/.DS_Store
+src/app/core/api/.DS_Store
+src/app/features/.DS_Store
+src/.DS_Store

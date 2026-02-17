@@ -237,11 +237,12 @@ export class InviteFormDialogComponent {
   }
 
   // ---------- Save ----------
-  save() {
-    // EDIT COMPANION ONLY
+  async save() {
+    // Editing a companion: ONLY update that person's fields.
+    // Do not modify the invite (party) info from this dialog.
     if (this.data.existingInvitee) {
       const v = this.personForm.getRawValue();
-      this.svc.updateInvitee(this.data.existingInvitee.id, {
+      await this.svc.updateInvitee(this.data.existingInvitee.id, {
         fullName: v.fullName.trim(),
         rsvp: v.rsvp,
         mealChoice: v.mealChoice || undefined,
@@ -251,24 +252,31 @@ export class InviteFormDialogComponent {
       return;
     }
 
-    // NEW INVITE / EDIT INVITE
+    // Creating or editing an invite (party)
     const p = this.partyForm.getRawValue();
     const inviteName = p.inviteName.trim();
 
-    const party = this.svc.upsertParty(
+    // Backend owns primary companion creation (fullName = inviteName).
+    const party = await this.svc.upsertParty(
       inviteName,
       { email: p.email || undefined, phone: p.phone || undefined },
       p.partyNotes || undefined
     );
 
-    // ✅ ensure primary person exists = inviteName
-    this.svc.upsertPrimaryInvitee(party.id, inviteName);
+    // If we're explicitly editing the invite, persist any party updates by id (defensive)
+    if (this.data.existingParty) {
+      await this.svc.updateParty(party.id, {
+        inviteName,
+        contact: { email: p.email || undefined, phone: p.phone || undefined },
+        notes: p.partyNotes || undefined,
+      });
+    }
 
-    // Optional extra companion
+    // Optional extra companion (user entered)
     const c = this.companionAddForm.getRawValue();
     const extraName = (c.fullName || '').trim();
-    if (extraName) {
-      this.svc.addInvitee({
+    if (extraName && extraName.toLowerCase() !== inviteName.toLowerCase()) {
+      await this.svc.addInvitee({
         partyId: party.id,
         fullName: extraName,
         rsvp: c.rsvp,
@@ -279,4 +287,5 @@ export class InviteFormDialogComponent {
 
     this.ref.close(true);
   }
+  
 }

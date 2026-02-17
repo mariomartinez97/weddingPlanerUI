@@ -10,20 +10,30 @@ import { RSVPStatus } from '../../core/models';
 
 type NewFormatRow = {
   InviteName: string;          // Party.inviteName
-  CompanionName?: string;      // Invitee.fullName (optional)
+  CompanionName: string;       // Invitee.fullName
   ContactEmail?: string;       // Party.contact.email
-  ContactPhone?: string | number; // Party.contact.phone
+  ContactPhone?: string | number; // can come as number from Excel
   RSVP?: string;
   MealChoice?: string;
   Notes?: string;              // person notes
   InviteNotes?: string;        // party notes
 };
 
+type OldFormatRow = {
+  Party: string;
+  FirstName: string;
+  LastName: string;
+  Email?: string;
+  Phone?: string | number;
+  RSVP?: string;
+  MealChoice?: string;
+  Notes?: string;
+};
+
 type PreviewRow = {
   InviteName: string;
   CompanionName: string;
   ContactEmail?: string;
-  ContactPhone?: string;
   RSVP?: string;
   MealChoice?: string;
 };
@@ -37,11 +47,9 @@ type PreviewRow = {
 
   <div mat-dialog-content>
     <p style="opacity:.85; margin-top:0; line-height:1.5;">
-      Expected columns (case-insensitive):<br>
-      <b>InviteName</b>, <b>CompanionName</b> (optional), <b>ContactEmail</b> (optional), <b>ContactPhone</b> (optional),
-      <b>RSVP</b> (optional), <b>MealChoice</b> (optional), <b>Notes</b> (optional), <b>InviteNotes</b> (optional).<br><br>
-      ✅ Each row can represent an additional companion for the same InviteName.
-      If CompanionName is empty, we still create the invite with the primary person = InviteName.
+      Supported formats:
+      <br><b>New format (recommended):</b> InviteName, CompanionName, ContactEmail, ContactPhone, RSVP, MealChoice, Notes, InviteNotes
+      <br><b>Old format (legacy):</b> Party, FirstName, LastName, Email, Phone, RSVP, MealChoice, Notes
     </p>
 
     <input type="file" accept=".xlsx,.xls" (change)="onFile($event)" />
@@ -49,8 +57,7 @@ type PreviewRow = {
     <div *ngIf="error" style="margin-top:10px; color:#b91c1c;">{{error}}</div>
 
     <div *ngIf="preview.length" style="margin-top:14px; overflow:auto; max-height:360px;">
-      <table mat-table [dataSource]="preview" class="mat-elevation-z0" style="min-width:860px;">
-
+      <table mat-table [dataSource]="preview" class="mat-elevation-z0" style="min-width:760px;">
         <ng-container matColumnDef="InviteName">
           <th mat-header-cell *matHeaderCellDef>Invite</th>
           <td mat-cell *matCellDef="let r">{{r.InviteName}}</td>
@@ -64,11 +71,6 @@ type PreviewRow = {
         <ng-container matColumnDef="ContactEmail">
           <th mat-header-cell *matHeaderCellDef>Email</th>
           <td mat-cell *matCellDef="let r">{{r.ContactEmail || '—'}}</td>
-        </ng-container>
-
-        <ng-container matColumnDef="ContactPhone">
-          <th mat-header-cell *matHeaderCellDef>Phone</th>
-          <td mat-cell *matCellDef="let r">{{r.ContactPhone || '—'}}</td>
         </ng-container>
 
         <ng-container matColumnDef="RSVP">
@@ -87,7 +89,7 @@ type PreviewRow = {
     </div>
 
     <div *ngIf="preview.length" style="opacity:.75; font-size:13px; margin-top:10px;">
-      Preview rows: {{preview.length}} (each row may add a companion; primary person is always auto-created from InviteName)
+      Rows: {{preview.length}} (each row = one companion/person)
     </div>
   </div>
 
@@ -103,12 +105,12 @@ export class ExcelImportDialogComponent {
   private svc = inject(InvitesService);
   ref = inject(MatDialogRef<ExcelImportDialogComponent>);
 
-  cols = ['InviteName','CompanionName','ContactEmail','ContactPhone','RSVP','MealChoice'];
+  cols = ['InviteName','CompanionName','ContactEmail','RSVP','MealChoice'];
 
   preview: PreviewRow[] = [];
   error = '';
 
-  // full parsed data used for import
+  // full parsed data kept for import
   parsed: NewFormatRow[] = [];
 
   async onFile(evt: Event) {
@@ -131,25 +133,27 @@ export class ExcelImportDialogComponent {
         return;
       }
 
-      // ✅ Normalize header names (trim leading/trailing spaces)
-      const rows = rawRows.map(r => {
-        const o: any = {};
-        for (const k of Object.keys(r)) o[String(k).trim()] = r[k];
-        return o;
-      });
+      const first = rawRows[0] || {};
+      const keys = Object.keys(first).map(k => k.trim().toLowerCase());
 
-      // Validate required column(s)
-      const keys = Object.keys(rows[0] || {}).map(k => k.toLowerCase());
-      if (!keys.includes('invitename')) {
-        this.error = 'Missing required column: InviteName';
+      const isNew = keys.includes('invitename') && keys.includes('companionname');
+      const isOld = keys.includes('party') && keys.includes('firstname') && keys.includes('lastname');
+
+      if (!isNew && !isOld) {
+        this.error =
+          'Unrecognized columns. Use either: ' +
+          'InviteName, CompanionName, ContactEmail, ContactPhone, RSVP, MealChoice, Notes, InviteNotes ' +
+          'OR Party, FirstName, LastName, Email, Phone, RSVP, MealChoice, Notes.';
         return;
       }
 
-      const cleaned = this.clean(rows as any as NewFormatRow[])
-        .filter(r => r.InviteName); // InviteName required; CompanionName optional
+      const cleaned: NewFormatRow[] = (isNew
+        ? this.cleanNew(rawRows as NewFormatRow[])
+        : this.convertOldToNew(this.cleanOld(rawRows as OldFormatRow[]))
+      ).filter(r => r.InviteName && r.CompanionName);
 
       if (!cleaned.length) {
-        this.error = 'No valid rows found. Make sure InviteName is filled.';
+        this.error = 'No valid rows found. Make sure InviteName + CompanionName are filled (or Party + FirstName + LastName for old format).';
         return;
       }
 
@@ -157,9 +161,8 @@ export class ExcelImportDialogComponent {
 
       this.preview = cleaned.slice(0, 250).map(r => ({
         InviteName: r.InviteName,
-        CompanionName: r.CompanionName || '—',
+        CompanionName: r.CompanionName,
         ContactEmail: r.ContactEmail,
-        ContactPhone: r.ContactPhone ? String(r.ContactPhone) : undefined,
         RSVP: r.RSVP,
         MealChoice: r.MealChoice,
       }));
@@ -167,12 +170,12 @@ export class ExcelImportDialogComponent {
       if (cleaned.length > 250) {
         this.error = `Preview shows first 250 rows; all ${cleaned.length} rows will be imported.`;
       }
-    } catch (e) {
+    } catch {
       this.error = 'Could not read the file. Please ensure it is a valid Excel .xlsx.';
     }
   }
 
-  import() {
+  async import() {
     const normalizeRSVP = (val?: string): RSVPStatus => {
       const v = (val || '').toUpperCase().trim();
       if (v === 'YES' || v === 'Y') return 'YES';
@@ -181,65 +184,83 @@ export class ExcelImportDialogComponent {
       return 'PENDING';
     };
 
-    const normalizePhone = (val: any): string | undefined => {
-      if (val === null || val === undefined || String(val).trim() === '') return undefined;
-      return String(val).replace(/\.0$/, '').trim();
-    };
-
-    // Prevent wiping contact info when subsequent rows are blank
-    const findPartyByInviteName = (inviteName: string) =>
-      this.svc.snapshot.parties.find(p => (p.inviteName || '').toLowerCase() === inviteName.toLowerCase());
-
     for (const r of this.parsed) {
-      const inviteName = r.InviteName.trim();
-      const existingParty = findPartyByInviteName(inviteName);
+      const inviteName = String(r.InviteName || '').trim();
+      const companionName = String(r.CompanionName || '').trim();
 
-      const email = r.ContactEmail?.trim() || undefined;
-      const phone = normalizePhone(r.ContactPhone);
+      if (!inviteName || !companionName) continue;
 
-      // ✅ Upsert party without overwriting contact with blanks
-      const party = this.svc.upsertParty(
+      // Backend owns primary creation -> avoid duplicates by skipping row where companion == inviteName
+      const isPrimaryRow = companionName.toLowerCase() === inviteName.toLowerCase();
+
+      const party = await this.svc.upsertParty(
         inviteName,
         {
-          email: email ?? existingParty?.contact?.email,
-          phone: phone ?? existingParty?.contact?.phone,
+          email: (r.ContactEmail ? String(r.ContactEmail).trim() : '') || undefined,
+          phone: (r.ContactPhone !== undefined && r.ContactPhone !== null && String(r.ContactPhone).trim() !== '')
+            ? String(r.ContactPhone).trim()
+            : undefined,
         },
-        (r.InviteNotes || undefined) ?? existingParty?.notes
+        (r.InviteNotes ? String(r.InviteNotes).trim() : '') || undefined
       );
 
-      // ✅ Always ensure primary invitee = InviteName
-      const primary = this.svc.upsertPrimaryInvitee(party.id, inviteName);
-
-      // Apply RSVP to primary (your sheet has 1 RSVP column)
-      const rsvp = normalizeRSVP(r.RSVP);
-      this.svc.updateInvitee(primary.id, { rsvp });
-
-      // ✅ Add companion (optional)
-      const companion = (r.CompanionName || '').trim();
-      if (companion && companion.toLowerCase() !== inviteName.toLowerCase()) {
-        this.svc.addInvitee({
-          partyId: party.id,
-          fullName: companion,
-          rsvp,
-          mealChoice: r.MealChoice || undefined,
-          notes: r.Notes || undefined,
-        });
+      if (isPrimaryRow) {
+        // Do nothing: backend will create the primary person automatically
+        continue;
       }
+
+      await this.svc.addInvitee({
+        partyId: party.id,
+        fullName: companionName,
+        rsvp: normalizeRSVP(r.RSVP),
+        mealChoice: (r.MealChoice ? String(r.MealChoice).trim() : '') || undefined,
+        notes: (r.Notes ? String(r.Notes).trim() : '') || undefined,
+      });
     }
 
     this.ref.close(true);
   }
 
-  private clean(rows: NewFormatRow[]): NewFormatRow[] {
+  // ---------- Cleaning helpers ----------
+
+  private cleanNew(rows: NewFormatRow[]): NewFormatRow[] {
     return rows.map(r => ({
       InviteName: String((r as any).InviteName || '').trim(),
-      CompanionName: String((r as any).CompanionName || '').trim() || undefined,
+      CompanionName: String((r as any).CompanionName || '').trim(),
       ContactEmail: String((r as any).ContactEmail || '').trim() || undefined,
-      ContactPhone: (r as any).ContactPhone ?? undefined,
+      ContactPhone: (r as any).ContactPhone ?? undefined, // keep raw, convert later
       RSVP: String((r as any).RSVP || '').trim() || undefined,
       MealChoice: String((r as any).MealChoice || '').trim() || undefined,
       Notes: String((r as any).Notes || '').trim() || undefined,
       InviteNotes: String((r as any).InviteNotes || '').trim() || undefined,
     }));
+  }
+
+  private cleanOld(rows: OldFormatRow[]): OldFormatRow[] {
+    return rows.map(r => ({
+      Party: String((r as any).Party || '').trim(),
+      FirstName: String((r as any).FirstName || '').trim(),
+      LastName: String((r as any).LastName || '').trim(),
+      Email: String((r as any).Email || '').trim() || undefined,
+      Phone: (r as any).Phone ?? undefined,
+      RSVP: String((r as any).RSVP || '').trim() || undefined,
+      MealChoice: String((r as any).MealChoice || '').trim() || undefined,
+      Notes: String((r as any).Notes || '').trim() || undefined,
+    }));
+  }
+
+  private convertOldToNew(rows: OldFormatRow[]): NewFormatRow[] {
+    return rows
+      .filter(r => r.Party && r.FirstName && r.LastName)
+      .map(r => ({
+        InviteName: r.Party,
+        CompanionName: `${r.FirstName} ${r.LastName}`.trim(),
+        ContactEmail: r.Email,
+        ContactPhone: r.Phone,
+        RSVP: r.RSVP,
+        MealChoice: r.MealChoice,
+        Notes: r.Notes,
+        InviteNotes: undefined,
+      }));
   }
 }

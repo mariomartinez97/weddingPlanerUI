@@ -1,195 +1,226 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, firstValueFrom } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+
 import { Invitee, Party, RSVPStatus } from '../models';
-import { loadFromStorage, saveToStorage, uid } from './storage.util';
 
 type InvitesStore = {
   parties: Party[];
   invitees: Invitee[];
 };
 
-const KEY = 'wp_invites_v1';
+// With Angular proxy.conf.json, keep this as '/api' and proxy to http://localhost:8080
+const API_BASE = '/api';
 
-function normalize(s: string) {
-  return (s || '').trim().toLowerCase();
-}
+/**
+ * Backend API shapes (current backend returns contact object + companions array)
+ */
+type InviteApi = {
+  id: string;
+  inviteName: string;
+  contact?: { email?: string | null; phone?: string | null } | null;
+  notes?: string | null;
+  companions: InviteeApi[];
+};
 
-function migrateIfNeeded(raw: any): InvitesStore {
-  // Already new shape
-  if (raw?.parties?.length && raw.parties[0]?.inviteName !== undefined) {
-    return raw as InvitesStore;
-  }
+type InviteeApi = {
+  id: string;
+  inviteId: string;
+  fullName: string;
+  rsvp: RSVPStatus;
+  mealChoice?: string | null;
+  notes?: string | null;
+};
 
-  // Old shape: Party {id,label} and Invitee {firstName,lastName,email,phone,partyId,rsvp,...}
-  const oldParties = Array.isArray(raw?.parties) ? raw.parties : [];
-  const oldInvitees = Array.isArray(raw?.invitees) ? raw.invitees : [];
+type CreateInviteRequest = {
+  inviteName: string;
+  contact?: { email?: string; phone?: string };
+  notes?: string;
+};
 
-  const parties: Party[] = oldParties.map((p: any) => ({
-    id: p.id,
-    inviteName: p.label ?? 'Invite',
-    contact: { email: undefined, phone: undefined },
-    notes: undefined,
-  }));
+type UpdateInviteRequest = {
+  inviteName: string;
+  contact?: { email?: string; phone?: string };
+  notes?: string;
+};
 
-  // If parties were just categories (Family/Friends/etc), we’ll upgrade them as “invites”
-  // The UI will let you rename them later.
+type CreateInviteeRequest = {
+  fullName: string;
+  rsvp: RSVPStatus;
+  mealChoice?: string;
+  notes?: string;
+};
 
-  const invitees: Invitee[] = oldInvitees.map((i: any) => ({
-    id: i.id,
-    partyId: i.partyId,
-    fullName: `${i.firstName ?? ''} ${i.lastName ?? ''}`.trim() || 'Guest',
-    rsvp: (i.rsvp ?? 'PENDING') as RSVPStatus,
-    mealChoice: i.mealChoice,
-    notes: i.notes,
-  }));
-
-  // Try to set party contact from first invitee that had email/phone in old data
-  const byParty = new Map<string, any[]>();
-  for (const i of oldInvitees) {
-    if (!byParty.has(i.partyId)) byParty.set(i.partyId, []);
-    byParty.get(i.partyId)!.push(i);
-  }
-
-  for (const p of parties) {
-    const list = byParty.get(p.id) || [];
-    const contactSource = list.find(x => x.email || x.phone);
-    if (contactSource) {
-      p.contact = {
-        email: contactSource.email,
-        phone: contactSource.phone,
-      };
-    }
-  }
-
-  return { parties, invitees };
-}
+type UpdateInviteeRequest = {
+  fullName: string;
+  rsvp: RSVPStatus;
+  mealChoice?: string;
+  notes?: string;
+};
 
 @Injectable({ providedIn: 'root' })
 export class InvitesService {
-  private store$ = new BehaviorSubject<InvitesStore>(
-    migrateIfNeeded(loadFromStorage<InvitesStore>(KEY, { parties: [], invitees: [] } as any))
-  );
+  private store$ = new BehaviorSubject<InvitesStore>({ parties: [], invitees: [] });
 
-  store$obs = this.store$.asObservable();
+  storeObs$ = this.store$.asObservable();
+  get snapshot(): InvitesStore { return this.store$.value; }
 
-  get snapshot(): InvitesStore {
-    return this.store$.value;
+  constructor(private http: HttpClient) {}
+
+  // ----------------------
+  // Loading / mapping
+  // ----------------------
+
+  async load(): Promise<void> {
+    const safe = await firstValueFrom(this.http.get<InviteApi[]>(`${API_BASE}/invites`)).catch(() => []);
+    const invites = Array.isArray(safe) ? safe : [];
+
+    const parties: Party[] = invites.map(i => ({
+      id: i.id,
+      inviteName: i.inviteName,
+      contact: {
+        email: i.contact?.email ?? undefined,
+        phone: i.contact?.phone ?? undefined,
+      },
+      notes: i.notes ?? undefined,
+    }));
+
+    const invitees: Invitee[] = invites.flatMap(i => (i.companions ?? []).map(c => ({
+      id: c.id,
+      partyId: i.id,
+      fullName: c.fullName,
+      rsvp: (c.rsvp as RSVPStatus) ?? 'PENDING',
+      mealChoice: c.mealChoice ?? undefined,
+      notes: c.notes ?? undefined,
+    })));
+
+    this.store$.next({ parties, invitees });
   }
 
-  private persist(next: InvitesStore) {
-    this.store$.next(next);
-    saveToStorage(KEY, next);
+  private async reload(): Promise<void> {
+    await this.load();
   }
 
-  // ----- Parties (Main Invites / Households) -----
+  // ----------------------
+  // Invite (Party) CRUD
+  // ----------------------
 
-  upsertParty(inviteName: string, contact?: any, notes?: string) {
-    const s = this.snapshot;
-  
-    const key = inviteName.trim().toLowerCase();
-    const existing = s.parties.find(p => p.inviteName.trim().toLowerCase() === key);
-    if (existing) return existing;
-  
-    const party = {
-      id: uid('party'),
+  /**
+   * Create a new invite (or if your UI treats it as "upsert", we keep the name).
+   */
+  async upsertParty(inviteName: string, contact?: { email?: string; phone?: string }, notes?: string): Promise<Party> {
+    const body: CreateInviteRequest = {
       inviteName: inviteName.trim(),
-      contact,
-      notes
+      contact: { email: contact?.email, phone: contact?.phone },
+      notes,
     };
-  
-    this.persist({ ...s, parties: [party, ...s.parties] });
-  
-    // ✅ auto-create the first companion = invite name
-    this.ensurePrimaryInvitee(party.id, party.inviteName);
-  
-    return party;
-  }
-  
 
-  updateParty(id: string, patch: Partial<Omit<Party, 'id'>>) {
-    const s = this.snapshot;
-    this.persist({
-      ...s,
-      parties: s.parties.map(p => p.id === id ? { ...p, ...patch, contact: { ...p.contact, ...(patch as any).contact } } : p)
-    });
-  }
+    // Backend may return the created Invite OR the full list. Support both.
+    const resp = await firstValueFrom(this.http.post<any>(`${API_BASE}/invites`, body));
 
-  deleteParty(id: string) {
-    const s = this.snapshot;
-    this.persist({
-      parties: s.parties.filter(p => p.id !== id),
-      invitees: s.invitees.filter(i => i.partyId !== id)
-    });
+    await this.reload();
+
+    // Try to resolve the created party id
+    if (resp && typeof resp === 'object') {
+      if (Array.isArray(resp)) {
+        const found = resp.find((x: any) => (x?.inviteName || '').toLowerCase() === body.inviteName.toLowerCase());
+        if (found?.id) return { id: found.id, inviteName: found.inviteName, contact: { email: found.contact?.email ?? undefined, phone: found.contact?.phone ?? undefined }, notes: found.notes ?? undefined };
+      } else if (resp.id) {
+        return { id: resp.id, inviteName: resp.inviteName ?? body.inviteName, contact: { email: resp.contact?.email ?? undefined, phone: resp.contact?.phone ?? undefined }, notes: resp.notes ?? undefined };
+      }
+    }
+
+    // Fallback: find by name in current store
+    const fromStore = this.snapshot.parties.find(p => p.inviteName.toLowerCase() === body.inviteName.toLowerCase());
+    if (fromStore) return fromStore;
+
+    // Last resort
+    return { id: 'unknown', inviteName: body.inviteName, contact, notes };
   }
 
-  // ----- Invitees (Companions / Individuals) -----
-
-  addInvitee(input: Omit<Invitee, 'id'>): Invitee {
-    const s = this.snapshot;
-    const inv: Invitee = { ...input, id: uid('inv') };
-    this.persist({ ...s, invitees: [inv, ...s.invitees] });
-    return inv;
+  async updateParty(partyId: string, patch: Partial<Party>): Promise<void> {
+    const body: UpdateInviteRequest = {
+      inviteName: (patch.inviteName ?? '').trim(),
+      contact: { email: patch.contact?.email, phone: patch.contact?.phone },
+      notes: patch.notes,
+    };
+    await firstValueFrom(this.http.put(`${API_BASE}/invites/${partyId}`, body));
+    await this.reload();
   }
 
-  addCompanion(partyId: string, fullName: string) {
+  async deleteParty(partyId: string): Promise<void> {
+    await firstValueFrom(this.http.delete(`${API_BASE}/invites/${partyId}`));
+    await this.reload();
+  }
+
+  // ----------------------
+  // Companion (Invitee) CRUD
+  // ----------------------
+
+  async addInvitee(input: Omit<Invitee, 'id'>): Promise<Invitee> {
+    const body: CreateInviteeRequest = {
+      fullName: input.fullName.trim(),
+      rsvp: input.rsvp,
+      mealChoice: input.mealChoice,
+      notes: input.notes,
+    };
+
+    const created = await firstValueFrom(this.http.post<InviteeApi>(`${API_BASE}/invites/${input.partyId}/invitees`, body));
+    await this.reload();
+
+    return {
+      id: created.id,
+      partyId: input.partyId,
+      fullName: created.fullName,
+      rsvp: created.rsvp,
+      mealChoice: created.mealChoice ?? undefined,
+      notes: created.notes ?? undefined,
+    };
+  }
+
+  async upsertInviteeByName(
+    partyId: string,
+    fullName: string,
+    patch: { rsvp?: RSVPStatus; mealChoice?: string; notes?: string } = {}
+  ): Promise<Invitee> {
+    const normalized = fullName.trim().toLowerCase();
+    const existing = this.snapshot.invitees.find(i =>
+      i.partyId === partyId &&
+      i.fullName.trim().toLowerCase() === normalized
+    );
+
+    if (existing) {
+      await this.updateInvitee(existing.id, {
+        fullName: existing.fullName,
+        rsvp: patch.rsvp ?? existing.rsvp,
+        mealChoice: patch.mealChoice,
+        notes: patch.notes,
+      });
+      return this.snapshot.invitees.find(i => i.id === existing.id) ?? existing;
+    }
+
     return this.addInvitee({
       partyId,
       fullName: fullName.trim(),
-      rsvp: 'PENDING',
-      mealChoice: undefined,
-      notes: undefined,
+      rsvp: patch.rsvp ?? 'PENDING',
+      mealChoice: patch.mealChoice,
+      notes: patch.notes,
     });
   }
 
-  updateInvitee(id: string, patch: Partial<Omit<Invitee, 'id'>>) {
-    const s = this.snapshot;
-    this.persist({
-      ...s,
-      invitees: s.invitees.map(i => i.id === id ? { ...i, ...patch } : i)
-    });
-  }
-
-  deleteInvitee(id: string) {
-    const s = this.snapshot;
-    this.persist({ ...s, invitees: s.invitees.filter(i => i.id !== id) });
-  }
-
-  setRSVP(id: string, rsvp: RSVPStatus) {
-    this.updateInvitee(id, { rsvp });
-  }
-
-  clearAll() {
-    this.persist({ parties: [], invitees: [] });
-  }
-
-  seedDemo() {
-    if (this.snapshot.invitees.length || this.snapshot.parties.length) return;
-
-    const p1 = this.upsertParty('Mario & Maria Martinez', { email: 'mario@example.com', phone: '+1 555-0101' });
-    const p2 = this.upsertParty('The Gomez Family', { email: 'gomez@example.com' });
-    const p3 = this.upsertParty('Work Friends', { phone: '+1 555-0202' });
-
-    this.addInvitee({ partyId: p1.id, fullName: 'Mario Martinez', rsvp: 'YES', mealChoice: 'Beef' });
-    this.addInvitee({ partyId: p1.id, fullName: 'Maria Paula', rsvp: 'YES', mealChoice: 'Fish' });
-
-    this.addInvitee({ partyId: p2.id, fullName: 'Ana Gomez', rsvp: 'PENDING' });
-    this.addInvitee({ partyId: p2.id, fullName: 'Luis Gomez', rsvp: 'NO' });
-
-    this.addInvitee({ partyId: p3.id, fullName: 'Sofia Chen', rsvp: 'YES', mealChoice: 'Vegetarian' });
-  }
-
-  private ensurePrimaryInvitee(partyId: string, inviteName: string) {
-    const s = this.snapshot;
-  
-    const normalized = (inviteName || '').trim().toLowerCase();
-    const already = s.invitees.some(i =>
+  /**
+   * Returns the primary invitee for a party. Backend normally auto-creates this
+   * as fullName === inviteName; if missing, create it as a fallback.
+   */
+  async upsertPrimaryInvitee(partyId: string, inviteName: string): Promise<Invitee> {
+    const normalized = inviteName.trim().toLowerCase();
+    const existing = this.snapshot.invitees.find(i =>
       i.partyId === partyId &&
-      (i.fullName || '').trim().toLowerCase() === normalized
+      i.fullName.trim().toLowerCase() === normalized
     );
-  
-    if (already) return;
-  
-    this.addInvitee({
+    if (existing) return existing;
+
+    return this.addInvitee({
       partyId,
       fullName: inviteName.trim(),
       rsvp: 'PENDING',
@@ -197,23 +228,49 @@ export class InvitesService {
       notes: undefined,
     });
   }
-  upsertPrimaryInvitee(partyId: string, fullName: string) {
-    const s = this.snapshot;
-    const normalized = fullName.trim().toLowerCase();
-  
-    const existing = s.invitees.find(i =>
-      i.partyId === partyId && i.fullName.trim().toLowerCase() === normalized
-    );
-  
-    if (existing) return existing;
-  
-    return this.addInvitee({
-      partyId,
-      fullName: fullName.trim(),
-      rsvp: 'PENDING',
-      mealChoice: undefined,
-      notes: undefined,
-    });
-  }  
 
+  async updateInvitee(id: string, patch: Partial<Invitee>): Promise<void> {
+    // Need partyId to build URL. Prefer patch.partyId else find from store.
+    const existing = this.snapshot.invitees.find(i => i.id === id);
+    const partyId = patch.partyId ?? existing?.partyId;
+    if (!partyId) throw new Error('Could not resolve partyId for invitee update');
+
+    const body: UpdateInviteeRequest = {
+      fullName: (patch.fullName ?? existing?.fullName ?? '').trim(),
+      rsvp: (patch.rsvp ?? existing?.rsvp ?? 'PENDING') as RSVPStatus,
+      mealChoice: patch.mealChoice,
+      notes: patch.notes,
+    };
+
+    await firstValueFrom(this.http.put(`${API_BASE}/invites/${partyId}/invitees/${id}`, body));
+    await this.reload();
+  }
+
+  async deleteInvitee(inviteeId: string): Promise<void> {
+    const partyId = this.snapshot.invitees.find(i => i.id === inviteeId)?.partyId;
+    if (!partyId) return;
+
+    await firstValueFrom(this.http.delete(`${API_BASE}/invites/${partyId}/invitees/${inviteeId}`));
+    await this.reload();
+  }
+
+  async setRSVP(inviteeId: string, rsvp: RSVPStatus): Promise<void> {
+    await this.updateInvitee(inviteeId, { rsvp });
+  }
+
+  // Convenience used by InvitesPage when adding companion via prompt
+  async addCompanion(partyId: string, fullName: string): Promise<void> {
+    await this.addInvitee({ partyId, fullName, rsvp: 'PENDING', mealChoice: undefined, notes: undefined });
+  }
+
+  clearAll() {
+    // Server-side clear endpoint could be added later; for now keep UI action disabled or implement per-invite delete.
+    this.store$.next({ parties: [], invitees: [] });
+  }
+
+  // Optional: keep for shell.component.ts if you still call it
+  async seedDemo(): Promise<void> {
+    // No-op in server mode; you can add a /api/dev/seed endpoint later if desired.
+    return;
+  }
 }

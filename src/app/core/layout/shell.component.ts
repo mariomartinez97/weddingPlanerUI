@@ -8,6 +8,12 @@ import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 
+import { InvitesService } from '../services/invites.service';
+import { BudgetService } from '../services/budget.service';
+import { ChecklistService } from '../services/checklist.service';
+import { CalendarService } from '../services/calendar.service';
+import { SeatingService } from '../services/seating.service';
+
 import { NgIf } from '@angular/common';
 
 @Component({
@@ -177,6 +183,12 @@ export class ShellComponent {
 
   @ViewChild('sidenav') sidenav!: MatSidenav;
 
+  private invites = inject(InvitesService);
+  private budget = inject(BudgetService);
+  private checklist = inject(ChecklistService);
+  private calendar = inject(CalendarService);
+  private seating = inject(SeatingService);
+
   private bp = inject(BreakpointObserver);
   private demoSeeded = signal(false);
 
@@ -195,26 +207,15 @@ export class ShellComponent {
 
   async seedDemo() {
     if (this.demoSeeded()) return;
-
-    const { InvitesService } = await import('../services/invites.service');
-    const { BudgetService } = await import('../services/budget.service');
-    const { ChecklistService } = await import('../services/checklist.service');
-    const { CalendarService } = await import('../services/calendar.service');
-    const { SeatingService } = await import('../services/seating.service');
-
-    const invites = new InvitesService();
-    const budget = new BudgetService();
-    const checklist = new ChecklistService();
-    const calendar = new CalendarService();
-    const seating = new SeatingService(invites);
-
-    invites.seedDemo();
-    budget.seedDemo();
-    checklist.seedDemo();
-    calendar.seedDemo();
-    seating.seedDemo();
-
+  
+    await this.invites.seedDemo();
+    this.budget.seedDemo();
+    this.checklist.seedDemo();
+    this.calendar.seedDemo();
+    this.seating.seedDemo();
+  
     this.demoSeeded.set(true);
     alert('Demo data added ✅');
   }
+  
 }
