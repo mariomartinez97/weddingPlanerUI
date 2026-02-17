@@ -258,21 +258,24 @@ export class InviteFormDialogComponent {
     const p = this.partyForm.getRawValue();
     const inviteName = p.inviteName.trim();
 
+    // Editing existing invite must update by id only (avoid creating a new row when name changes).
+    if (this.data.existingParty) {
+      await this.svc.updateParty(this.data.existingParty.id, {
+        inviteName,
+        contact: { email: p.email || undefined, phone: p.phone || undefined },
+        notes: p.partyNotes || undefined,
+      });
+      this.ref.close(true);
+      return;
+    }
+
+    // New invite flow.
     // Backend owns primary companion creation (fullName = inviteName).
     const party = await this.svc.upsertParty(
       inviteName,
       { email: p.email || undefined, phone: p.phone || undefined },
       p.partyNotes || undefined
     );
-
-    // If we're explicitly editing the invite, persist any party updates by id (defensive)
-    if (this.data.existingParty) {
-      await this.svc.updateParty(party.id, {
-        inviteName,
-        contact: { email: p.email || undefined, phone: p.phone || undefined },
-        notes: p.partyNotes || undefined,
-      });
-    }
 
     // Optional extra companion (user entered)
     const c = this.companionAddForm.getRawValue();
