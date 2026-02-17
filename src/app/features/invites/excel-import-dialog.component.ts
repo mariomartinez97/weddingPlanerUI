@@ -127,7 +127,9 @@ export class ExcelImportDialogComponent {
       const wb = XLSX.read(data, { type: 'array' });
       const sheet = wb.Sheets[wb.SheetNames[0]];
 
-      const rawRows = XLSX.utils.sheet_to_json<any>(sheet, { defval: '' });
+      const rawRows = XLSX.utils
+        .sheet_to_json<any>(sheet, { defval: '' })
+        .map(r => this.normalizeRowKeys(r));
       if (!rawRows.length) {
         this.error = 'Empty sheet.';
         return;
@@ -150,10 +152,10 @@ export class ExcelImportDialogComponent {
       const cleaned: NewFormatRow[] = (isNew
         ? this.cleanNew(rawRows as NewFormatRow[])
         : this.convertOldToNew(this.cleanOld(rawRows as OldFormatRow[]))
-      ).filter(r => r.InviteName && r.CompanionName);
+      ).filter(r => r.InviteName);
 
       if (!cleaned.length) {
-        this.error = 'No valid rows found. Make sure InviteName + CompanionName are filled (or Party + FirstName + LastName for old format).';
+        this.error = 'No valid rows found. Make sure InviteName is filled (or Party + FirstName + LastName for old format).';
         return;
       }
 
@@ -184,30 +186,41 @@ export class ExcelImportDialogComponent {
       return 'PENDING';
     };
 
+    const partyByInvite = new Map<string, Awaited<ReturnType<InvitesService['upsertParty']>>>();
+    const addedCompanions = new Set<string>();
+
     for (const r of this.parsed) {
       const inviteName = String(r.InviteName || '').trim();
       const companionName = String(r.CompanionName || '').trim();
 
-      if (!inviteName || !companionName) continue;
+      if (!inviteName) continue;
 
       // Backend owns primary creation -> avoid duplicates by skipping row where companion == inviteName
       const isPrimaryRow = companionName.toLowerCase() === inviteName.toLowerCase();
 
-      const party = await this.svc.upsertParty(
-        inviteName,
-        {
-          email: (r.ContactEmail ? String(r.ContactEmail).trim() : '') || undefined,
-          phone: (r.ContactPhone !== undefined && r.ContactPhone !== null && String(r.ContactPhone).trim() !== '')
-            ? String(r.ContactPhone).trim()
-            : undefined,
-        },
-        (r.InviteNotes ? String(r.InviteNotes).trim() : '') || undefined
-      );
+      let party = partyByInvite.get(inviteName.toLowerCase());
+      if (!party) {
+        party = await this.svc.upsertParty(
+          inviteName,
+          {
+            email: (r.ContactEmail ? String(r.ContactEmail).trim() : '') || undefined,
+            phone: (r.ContactPhone !== undefined && r.ContactPhone !== null && String(r.ContactPhone).trim() !== '')
+              ? String(r.ContactPhone).trim()
+              : undefined,
+          },
+          (r.InviteNotes ? String(r.InviteNotes).trim() : '') || undefined
+        );
+        partyByInvite.set(inviteName.toLowerCase(), party);
+      }
 
-      if (isPrimaryRow) {
+      if (!companionName || isPrimaryRow) {
         // Do nothing: backend will create the primary person automatically
         continue;
       }
+
+      const companionKey = `${party.id}::${companionName.toLowerCase()}`;
+      if (addedCompanions.has(companionKey)) continue;
+      addedCompanions.add(companionKey);
 
       await this.svc.addInvitee({
         partyId: party.id,
@@ -262,5 +275,13 @@ export class ExcelImportDialogComponent {
         Notes: r.Notes,
         InviteNotes: undefined,
       }));
+  }
+
+  private normalizeRowKeys<T extends Record<string, any>>(row: T): Record<string, any> {
+    const normalized: Record<string, any> = {};
+    for (const [key, value] of Object.entries(row)) {
+      normalized[String(key).trim()] = value;
+    }
+    return normalized;
   }
 }

@@ -114,49 +114,51 @@ type DialogData = {
 
       <mat-divider style="margin: 14px 0;"></mat-divider>
 
-      <!-- OPTIONAL extra companion (never used for the primary) -->
-      <div class="section">
-        <div class="section-title">Add companion (optional)</div>
+      <!-- OPTIONAL extra companion (only for creating a new invite) -->
+      <ng-container *ngIf="isCreatingNewInvite()">
+        <div class="section">
+          <div class="section-title">Add companion (optional)</div>
 
-        <form [formGroup]="companionAddForm" class="grid">
-          <div class="col-12">
-            <mat-form-field appearance="fill">
-              <mat-label>Companion full name</mat-label>
-              <input matInput formControlName="fullName" placeholder="Optional (e.g., Sofia Chen)">
-            </mat-form-field>
-          </div>
+          <form [formGroup]="companionAddForm" class="grid">
+            <div class="col-12">
+              <mat-form-field appearance="fill">
+                <mat-label>Companion full name</mat-label>
+                <input matInput formControlName="fullName" placeholder="Optional (e.g., Sofia Chen)">
+              </mat-form-field>
+            </div>
 
-          <div class="col-6">
-            <mat-form-field appearance="fill">
-              <mat-label>RSVP</mat-label>
-              <mat-select formControlName="rsvp">
-                <mat-option value="PENDING">Pending</mat-option>
-                <mat-option value="YES">Yes</mat-option>
-                <mat-option value="NO">No</mat-option>
-                <mat-option value="MAYBE">Maybe</mat-option>
-              </mat-select>
-            </mat-form-field>
-          </div>
+            <div class="col-6">
+              <mat-form-field appearance="fill">
+                <mat-label>RSVP</mat-label>
+                <mat-select formControlName="rsvp">
+                  <mat-option value="PENDING">Pending</mat-option>
+                  <mat-option value="YES">Yes</mat-option>
+                  <mat-option value="NO">No</mat-option>
+                  <mat-option value="MAYBE">Maybe</mat-option>
+                </mat-select>
+              </mat-form-field>
+            </div>
 
-          <div class="col-6">
-            <mat-form-field appearance="fill">
-              <mat-label>Meal choice</mat-label>
-              <input matInput formControlName="mealChoice" placeholder="Optional">
-            </mat-form-field>
-          </div>
+            <div class="col-6">
+              <mat-form-field appearance="fill">
+                <mat-label>Meal choice</mat-label>
+                <input matInput formControlName="mealChoice" placeholder="Optional">
+              </mat-form-field>
+            </div>
 
-          <div class="col-12">
-            <mat-form-field appearance="fill">
-              <mat-label>Person notes</mat-label>
-              <textarea matInput rows="2" formControlName="personNotes" placeholder="Optional"></textarea>
-            </mat-form-field>
-          </div>
+            <div class="col-12">
+              <mat-form-field appearance="fill">
+                <mat-label>Person notes</mat-label>
+                <textarea matInput rows="2" formControlName="personNotes" placeholder="Optional"></textarea>
+              </mat-form-field>
+            </div>
 
-          <div class="col-12" style="opacity:.75; font-size:13px;">
-            The invite name is automatically saved as the first person. Use this only for extra companions.
-          </div>
-        </form>
-      </div>
+            <div class="col-12" style="opacity:.75; font-size:13px;">
+              The invite name is automatically saved as the first person. Use this only for extra companions.
+            </div>
+          </form>
+        </div>
+      </ng-container>
     </ng-template>
   </div>
 
