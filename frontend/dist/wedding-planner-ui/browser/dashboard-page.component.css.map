@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["angular:styles/component:css;7077e03298ce51fa9cc3d8baa8853c84b98752a6c7685cd62979fb04ec96b049;/Users/mariomartinez/Documents/GitHub/weddingPlanerUI/frontend/src/app/features/dashboard/dashboard-page.component.ts"],
+  "sourcesContent": ["\n    .pie-wrap { width:160px; height:160px; }\n    .legend-row { display:flex; gap:10px; align-items:center; font-size:13px; }\n    .dot { width:10px; height:10px; border-radius:999px; display:inline-block; }\n    .row { display:flex; gap:12px; padding:14px 0; border-bottom: 1px solid rgba(0,0,0,0.06); }\n    .badge { width:10px; height:10px; border-radius:50%; margin-top:6px; }\n    .todo-dot { width:10px; height:10px; border-radius:50%; margin-top:6px; background: rgba(0,0,0,0.25); }\n  "],
+  "mappings": ";AACI,CAAC;AAAW,SAAM;AAAO,UAAO;AAAO;AACvC,CAAC;AAAa,WAAQ;AAAM,OAAI;AAAM,eAAY;AAAQ,aAAU;AAAM;AAC1E,CAAC;AAAM,SAAM;AAAM,UAAO;AAAM,iBAAc;AAAO,WAAQ;AAAc;AAC3E,CAAC;AAAM,WAAQ;AAAM,OAAI;AAAM,WAAQ,KAAK;AAAG,iBAAe,IAAI,MAAM,KAAK,CAAC,EAAC,CAAC,EAAC,CAAC,EAAC;AAAO;AAC1F,CAAC;AAAQ,SAAM;AAAM,UAAO;AAAM,iBAAc;AAAK,cAAW;AAAK;AACrE,CAAC;AAAW,SAAM;AAAM,UAAO;AAAM,iBAAc;AAAK,cAAW;AAAK,cAAY,KAAK,CAAC,EAAC,CAAC,EAAC,CAAC,EAAC;AAAO;",
+  "names": []
+}

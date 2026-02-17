@@ -230,10 +230,10 @@ export class InvitesService {
   }
 
   async updateInvitee(id: string, patch: Partial<Invitee>): Promise<void> {
-    // Need partyId to build URL. Prefer patch.partyId else find from store.
     const existing = this.snapshot.invitees.find(i => i.id === id);
-    const partyId = patch.partyId ?? existing?.partyId;
-    if (!partyId) throw new Error('Could not resolve partyId for invitee update');
+    if (!existing && !patch.fullName) {
+      throw new Error('Could not resolve invitee for update');
+    }
 
     const body: UpdateInviteeRequest = {
       fullName: (patch.fullName ?? existing?.fullName ?? '').trim(),
@@ -242,15 +242,12 @@ export class InvitesService {
       notes: patch.notes,
     };
 
-    await firstValueFrom(this.http.put(`${API_BASE}/invites/${partyId}/invitees/${id}`, body));
+    await firstValueFrom(this.http.put(`${API_BASE}/invitees/${id}`, body));
     await this.reload();
   }
 
   async deleteInvitee(inviteeId: string): Promise<void> {
-    const partyId = this.snapshot.invitees.find(i => i.id === inviteeId)?.partyId;
-    if (!partyId) return;
-
-    await firstValueFrom(this.http.delete(`${API_BASE}/invites/${partyId}/invitees/${inviteeId}`));
+    await firstValueFrom(this.http.delete(`${API_BASE}/invitees/${inviteeId}`));
     await this.reload();
   }
 

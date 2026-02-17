@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["angular:styles/component:css;075ef12956f6c666164b7e25359f138ddc7dc8de0e58734d6b80d0e6cb245426;/Users/mariomartinez/Documents/GitHub/weddingPlanerUI/frontend/src/app/features/invites/invite-form-dialog.component.ts"],
+  "sourcesContent": ["\n    .section-title { font-weight: 800; margin: 0 0 10px 0; }\n    .section { padding-top: 6px; }\n  "],
+  "mappings": ";AACI,CAAC;AAAgB,eAAa;AAAK,UAAQ,EAAE,EAAE,KAAK;AAAG;AACvD,CAAC;AAAU,eAAa;AAAK;",
+  "names": []
+}
