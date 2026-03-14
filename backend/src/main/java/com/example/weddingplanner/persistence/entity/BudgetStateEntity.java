@@ -21,6 +21,9 @@ public class BudgetStateEntity {
     @Column(name = "currency", nullable = false)
     private String currency;
 
+    @Column(name = "plan_id", nullable = false, length = 50)
+    private String planId;
+
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
 
@@ -29,4 +32,7 @@ public class BudgetStateEntity {
 
     public String getCurrency() { return currency; }
     public void setCurrency(String currency) { this.currency = currency; }
+
+    public String getPlanId() { return planId; }
+    public void setPlanId(String planId) { this.planId = planId; }
 }

@@ -24,6 +24,9 @@ public class InviteEntity {
     @Column(name = "notes", columnDefinition = "text")
     private String notes;
 
+    @Column(name = "plan_id", nullable = false, length = 50)
+    private String planId;
+
     @OneToMany(
             mappedBy = "invite",
             cascade = CascadeType.ALL,
@@ -46,6 +49,9 @@ public class InviteEntity {
 
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
+
+    public String getPlanId() { return planId; }
+    public void setPlanId(String planId) { this.planId = planId; }
 
     public List<InviteeEntity> getInvitees() { return invitees; }
 

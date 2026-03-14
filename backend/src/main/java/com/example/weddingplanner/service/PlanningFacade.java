@@ -12,8 +12,6 @@ import java.util.List;
 @Service
 public class PlanningFacade {
 
-    private static final String BUDGET_ROW_ID = "budget_main";
-
     private final IdService ids;
     private final InviteeRepository invitees;
     private final BudgetStateRepository budgetStateRepo;
@@ -22,6 +20,8 @@ public class PlanningFacade {
     private final AppointmentRepository appointmentRepo;
     private final SeatingTableRepository seatingTableRepo;
     private final SeatingAssignmentRepository seatingAssignmentRepo;
+    private final AuthContextService auth;
+    private final AuditService audit;
 
     public PlanningFacade(
             IdService ids,
@@ -31,7 +31,9 @@ public class PlanningFacade {
             ChecklistItemRepository checklistRepo,
             AppointmentRepository appointmentRepo,
             SeatingTableRepository seatingTableRepo,
-            SeatingAssignmentRepository seatingAssignmentRepo
+            SeatingAssignmentRepository seatingAssignmentRepo,
+            AuthContextService auth,
+            AuditService audit
     ) {
         this.ids = ids;
         this.invitees = invitees;
@@ -41,6 +43,8 @@ public class PlanningFacade {
         this.appointmentRepo = appointmentRepo;
         this.seatingTableRepo = seatingTableRepo;
         this.seatingAssignmentRepo = seatingAssignmentRepo;
+        this.auth = auth;
+        this.audit = audit;
     }
 
     // ---- Budget ----
@@ -49,7 +53,7 @@ public class PlanningFacade {
         BudgetStateEntity state = getOrCreateBudgetState();
         return new BudgetPayloadDto(
                 new BudgetStateDto(zeroIfNull(state.getTotalBudget()), safeCurrency(state.getCurrency())),
-                budgetExpenseRepo.findAllByOrderByCategoryAsc().stream().map(this::toDto).toList()
+                budgetExpenseRepo.findAllByPlanIdOrderByCategoryAsc(auth.currentPlanId()).stream().map(this::toDto).toList()
         );
     }
 
@@ -59,6 +63,7 @@ public class PlanningFacade {
         state.setTotalBudget(req.totalBudget() == null ? BigDecimal.ZERO : req.totalBudget());
         state.setCurrency(safeCurrency(req.currency()));
         budgetStateRepo.save(state);
+        audit.record("update", "budget_state", state.getId(), "Updated budget state");
         return new BudgetStateDto(state.getTotalBudget(), state.getCurrency());
     }
 
@@ -66,101 +71,119 @@ public class PlanningFacade {
     public BudgetExpenseDto createExpense(UpsertBudgetExpenseRequest req) {
         BudgetExpenseEntity e = new BudgetExpenseEntity();
         e.setId(ids.uid("exp"));
+        e.setPlanId(auth.currentPlanId());
         applyExpense(e, req);
         budgetExpenseRepo.save(e);
+        audit.record("create", "budget_expense", e.getId(), "Created expense " + e.getCategory());
         return toDto(e);
     }
 
     @Transactional
     public BudgetExpenseDto updateExpense(String expenseId, UpsertBudgetExpenseRequest req) {
-        BudgetExpenseEntity e = budgetExpenseRepo.findById(expenseId).orElseThrow();
+        BudgetExpenseEntity e = budgetExpenseRepo.findByIdAndPlanId(expenseId, auth.currentPlanId()).orElseThrow();
         applyExpense(e, req);
         budgetExpenseRepo.save(e);
+        audit.record("update", "budget_expense", e.getId(), "Updated expense " + e.getCategory());
         return toDto(e);
     }
 
     @Transactional
     public void deleteExpense(String expenseId) {
-        budgetExpenseRepo.deleteById(expenseId);
+        BudgetExpenseEntity expense = budgetExpenseRepo.findByIdAndPlanId(expenseId, auth.currentPlanId()).orElseThrow();
+        budgetExpenseRepo.delete(expense);
+        audit.record("delete", "budget_expense", expenseId, "Deleted expense " + expense.getCategory());
     }
 
     @Transactional
     public void clearExpenses() {
-        budgetExpenseRepo.deleteAll();
+        budgetExpenseRepo.deleteAllByPlanId(auth.currentPlanId());
+        audit.record("clear", "budget_expense", null, "Cleared budget expenses");
     }
 
     // ---- Checklist ----
 
     public List<ChecklistItemDto> listChecklistItems() {
-        return checklistRepo.findAllByOrderByDoneAscDueDateAscTitleAsc().stream().map(this::toDto).toList();
+        return checklistRepo.findAllByPlanIdOrderByDoneAscDueDateAscTitleAsc(auth.currentPlanId()).stream().map(this::toDto).toList();
     }
 
     @Transactional
     public ChecklistItemDto createChecklistItem(UpsertChecklistItemRequest req) {
         ChecklistItemEntity e = new ChecklistItemEntity();
         e.setId(ids.uid("task"));
+        e.setPlanId(auth.currentPlanId());
         applyChecklist(e, req);
         checklistRepo.save(e);
+        audit.record("create", "checklist_item", e.getId(), "Created checklist item " + e.getTitle());
         return toDto(e);
     }
 
     @Transactional
     public ChecklistItemDto updateChecklistItem(String itemId, UpsertChecklistItemRequest req) {
-        ChecklistItemEntity e = checklistRepo.findById(itemId).orElseThrow();
+        ChecklistItemEntity e = checklistRepo.findByIdAndPlanId(itemId, auth.currentPlanId()).orElseThrow();
         applyChecklist(e, req);
         checklistRepo.save(e);
+        audit.record("update", "checklist_item", e.getId(), "Updated checklist item " + e.getTitle());
         return toDto(e);
     }
 
     @Transactional
     public void deleteChecklistItem(String itemId) {
-        checklistRepo.deleteById(itemId);
+        ChecklistItemEntity item = checklistRepo.findByIdAndPlanId(itemId, auth.currentPlanId()).orElseThrow();
+        checklistRepo.delete(item);
+        audit.record("delete", "checklist_item", itemId, "Deleted checklist item " + item.getTitle());
     }
 
     @Transactional
     public void clearChecklistItems() {
-        checklistRepo.deleteAll();
+        checklistRepo.deleteAllByPlanId(auth.currentPlanId());
+        audit.record("clear", "checklist_item", null, "Cleared checklist items");
     }
 
     // ---- Calendar ----
 
     public List<AppointmentDto> listAppointments() {
-        return appointmentRepo.findAllByOrderByStartAtAsc().stream().map(this::toDto).toList();
+        return appointmentRepo.findAllByPlanIdOrderByStartAtAsc(auth.currentPlanId()).stream().map(this::toDto).toList();
     }
 
     @Transactional
     public AppointmentDto createAppointment(UpsertAppointmentRequest req) {
         AppointmentEntity e = new AppointmentEntity();
         e.setId(ids.uid("appt"));
+        e.setPlanId(auth.currentPlanId());
         applyAppointment(e, req);
         appointmentRepo.save(e);
+        audit.record("create", "appointment", e.getId(), "Created appointment " + e.getTitle());
         return toDto(e);
     }
 
     @Transactional
     public AppointmentDto updateAppointment(String id, UpsertAppointmentRequest req) {
-        AppointmentEntity e = appointmentRepo.findById(id).orElseThrow();
+        AppointmentEntity e = appointmentRepo.findByIdAndPlanId(id, auth.currentPlanId()).orElseThrow();
         applyAppointment(e, req);
         appointmentRepo.save(e);
+        audit.record("update", "appointment", e.getId(), "Updated appointment " + e.getTitle());
         return toDto(e);
     }
 
     @Transactional
     public void deleteAppointment(String id) {
-        appointmentRepo.deleteById(id);
+        AppointmentEntity appointment = appointmentRepo.findByIdAndPlanId(id, auth.currentPlanId()).orElseThrow();
+        appointmentRepo.delete(appointment);
+        audit.record("delete", "appointment", id, "Deleted appointment " + appointment.getTitle());
     }
 
     @Transactional
     public void clearAppointments() {
-        appointmentRepo.deleteAll();
+        appointmentRepo.deleteAllByPlanId(auth.currentPlanId());
+        audit.record("clear", "appointment", null, "Cleared appointments");
     }
 
     // ---- Seating ----
 
     public SeatingPayloadDto getSeating() {
         return new SeatingPayloadDto(
-                seatingTableRepo.findAllByOrderByNameAsc().stream().map(this::toDto).toList(),
-                seatingAssignmentRepo.findAllByOrderByTableIdAscInviteeIdAsc().stream().map(this::toDto).toList()
+                seatingTableRepo.findAllByPlanIdOrderByNameAsc(auth.currentPlanId()).stream().map(this::toDto).toList(),
+                seatingAssignmentRepo.findAllByPlanIdOrderByTableIdAscInviteeIdAsc(auth.currentPlanId()).stream().map(this::toDto).toList()
         );
     }
 
@@ -169,13 +192,14 @@ public class PlanningFacade {
         List<SeatingTableDto> safeTables = tables == null ? List.of() : tables;
 
         if (safeTables.isEmpty()) {
-            seatingAssignmentRepo.deleteAll();
-            seatingTableRepo.deleteAll();
+            seatingAssignmentRepo.deleteAllByPlanId(auth.currentPlanId());
+            seatingTableRepo.deleteAllByPlanId(auth.currentPlanId());
+            audit.record("clear", "seating_table", null, "Cleared seating tables");
             return new SeatingPayloadDto(List.of(), List.of());
         }
 
         List<String> idsToKeep = safeTables.stream().map(SeatingTableDto::id).filter(PlanningFacade::hasText).toList();
-        if (!idsToKeep.isEmpty()) seatingTableRepo.deleteByIdNotIn(idsToKeep);
+        if (!idsToKeep.isEmpty()) seatingTableRepo.deleteByPlanIdAndIdNotIn(auth.currentPlanId(), idsToKeep);
 
         for (SeatingTableDto t : safeTables) {
             if (!hasText(t.id()) || !hasText(t.name())) continue;
@@ -183,16 +207,18 @@ public class PlanningFacade {
             e.setId(t.id().trim());
             e.setName(t.name().trim());
             e.setSeats(t.seats() == null || t.seats() < 1 ? 1 : t.seats());
+            e.setPlanId(auth.currentPlanId());
             seatingTableRepo.save(e);
         }
 
+        audit.record("replace", "seating_table", null, "Replaced seating tables");
         return getSeating();
     }
 
     @Transactional
     public SeatingAssignmentDto assignSeat(String inviteeId, AssignSeatRequest req) {
-        if (!invitees.existsById(inviteeId)) throw new IllegalArgumentException("Invitee not found");
-        if (req == null || !hasText(req.tableId()) || !seatingTableRepo.existsById(req.tableId().trim())) {
+        if (!invitees.existsByIdAndInvite_PlanId(inviteeId, auth.currentPlanId())) throw new IllegalArgumentException("Invitee not found");
+        if (req == null || !hasText(req.tableId()) || !seatingTableRepo.existsByIdAndPlanId(req.tableId().trim(), auth.currentPlanId())) {
             throw new IllegalArgumentException("Table not found");
         }
 
@@ -200,18 +226,22 @@ public class PlanningFacade {
         e.setInviteeId(inviteeId);
         e.setTableId(req.tableId().trim());
         e.setSeatNumber(req.seatNumber());
+        e.setPlanId(auth.currentPlanId());
         seatingAssignmentRepo.save(e);
+        audit.record("assign", "seat_assignment", inviteeId, "Assigned seat");
         return toDto(e);
     }
 
     @Transactional
     public void unassignSeat(String inviteeId) {
         seatingAssignmentRepo.deleteById(inviteeId);
+        audit.record("delete", "seat_assignment", inviteeId, "Removed seat assignment");
     }
 
     @Transactional
     public void clearAssignments() {
-        seatingAssignmentRepo.deleteAll();
+        seatingAssignmentRepo.deleteAllByPlanId(auth.currentPlanId());
+        audit.record("clear", "seat_assignment", null, "Cleared seating assignments");
     }
 
     // ---- mapping/helpers ----
@@ -272,9 +302,11 @@ public class PlanningFacade {
     }
 
     private BudgetStateEntity getOrCreateBudgetState() {
-        return budgetStateRepo.findById(BUDGET_ROW_ID).orElseGet(() -> {
+        String planId = auth.currentPlanId();
+        return budgetStateRepo.findByPlanId(planId).orElseGet(() -> {
             BudgetStateEntity e = new BudgetStateEntity();
-            e.setId(BUDGET_ROW_ID);
+            e.setId(ids.uid("budget"));
+            e.setPlanId(planId);
             e.setTotalBudget(BigDecimal.ZERO);
             e.setCurrency("CAD");
             return budgetStateRepo.save(e);

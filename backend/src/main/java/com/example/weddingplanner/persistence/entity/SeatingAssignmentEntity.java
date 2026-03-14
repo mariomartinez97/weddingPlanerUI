@@ -19,6 +19,9 @@ public class SeatingAssignmentEntity {
     @Column(name = "seat_number")
     private Integer seatNumber;
 
+    @Column(name = "plan_id", nullable = false, length = 50)
+    private String planId;
+
     public String getInviteeId() { return inviteeId; }
     public void setInviteeId(String inviteeId) { this.inviteeId = inviteeId; }
 
@@ -27,4 +30,7 @@ public class SeatingAssignmentEntity {
 
     public Integer getSeatNumber() { return seatNumber; }
     public void setSeatNumber(Integer seatNumber) { this.seatNumber = seatNumber; }
+
+    public String getPlanId() { return planId; }
+    public void setPlanId(String planId) { this.planId = planId; }
 }

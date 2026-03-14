@@ -6,5 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface BudgetExpenseRepository extends JpaRepository<BudgetExpenseEntity, String> {
-    List<BudgetExpenseEntity> findAllByOrderByCategoryAsc();
+    List<BudgetExpenseEntity> findAllByPlanIdOrderByCategoryAsc(String planId);
+    java.util.Optional<BudgetExpenseEntity> findByIdAndPlanId(String id, String planId);
+    void deleteAllByPlanId(String planId);
 }

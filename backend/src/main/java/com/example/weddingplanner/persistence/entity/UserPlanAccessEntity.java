@@ -6,30 +6,24 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "seating_tables")
-public class SeatingTableEntity {
+@Table(name = "user_plan_access")
+public class UserPlanAccessEntity {
 
     @Id
     @Column(name = "id", length = 50, nullable = false)
     private String id;
 
-    @Column(name = "name", nullable = false)
-    private String name;
+    @Column(name = "user_id", length = 50, nullable = false)
+    private String userId;
 
-    @Column(name = "seats", nullable = false)
-    private Integer seats;
-
-    @Column(name = "plan_id", nullable = false, length = 50)
+    @Column(name = "plan_id", length = 50, nullable = false)
     private String planId;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
 
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-
-    public Integer getSeats() { return seats; }
-    public void setSeats(Integer seats) { this.seats = seats; }
+    public String getUserId() { return userId; }
+    public void setUserId(String userId) { this.userId = userId; }
 
     public String getPlanId() { return planId; }
     public void setPlanId(String planId) { this.planId = planId; }

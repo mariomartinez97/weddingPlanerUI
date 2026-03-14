@@ -6,5 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface ChecklistItemRepository extends JpaRepository<ChecklistItemEntity, String> {
-    List<ChecklistItemEntity> findAllByOrderByDoneAscDueDateAscTitleAsc();
+    List<ChecklistItemEntity> findAllByPlanIdOrderByDoneAscDueDateAscTitleAsc(String planId);
+    java.util.Optional<ChecklistItemEntity> findByIdAndPlanId(String id, String planId);
+    void deleteAllByPlanId(String planId);
 }

@@ -18,15 +18,19 @@ public class InvitesFacade {
     private final InviteRepository invites;
     private final InviteeRepository invitees;
     private final IdService ids;
+    private final AuthContextService auth;
+    private final AuditService audit;
 
-    public InvitesFacade(InviteRepository invites, InviteeRepository invitees, IdService ids) {
+    public InvitesFacade(InviteRepository invites, InviteeRepository invitees, IdService ids, AuthContextService auth, AuditService audit) {
         this.invites = invites;
         this.invitees = invitees;
         this.ids = ids;
+        this.auth = auth;
+        this.audit = audit;
     }
 
     public List<InviteDto> listAll() {
-        return invites.findAll().stream()
+        return invites.findAllByPlanId(auth.currentPlanId()).stream()
                 .sorted(Comparator.comparing(InviteEntity::getInviteName, String.CASE_INSENSITIVE_ORDER))
                 .map(this::toDto)
                 .toList();
@@ -36,7 +40,7 @@ public class InvitesFacade {
         if (isBlank(q)) return listAll();
         String needle = q.trim().toLowerCase();
 
-        return invites.findAll().stream()
+        return invites.findAllByPlanId(auth.currentPlanId()).stream()
                 .filter(inv -> matchesInvite(inv, needle) || matchesCompanion(inv, needle))
                 .sorted(Comparator.comparing(InviteEntity::getInviteName, String.CASE_INSENSITIVE_ORDER))
                 .map(this::toDto)
@@ -47,6 +51,7 @@ public class InvitesFacade {
     public InviteDto createInvite(CreateInviteRequest req) {
         InviteEntity inv = new InviteEntity();
         inv.setId(ids.uid("inv"));
+        inv.setPlanId(auth.currentPlanId());
         inv.setInviteName(req.inviteName().trim());
         if (req.contact() != null) {
             inv.setContactEmail(blankToNull(req.contact().email()));
@@ -76,12 +81,13 @@ public class InvitesFacade {
         // refresh with invitees
         InviteEntity loaded = invites.findById(inv.getId()).orElseThrow();
         loaded.setInvitees(invitees.findByInvite_Id(inv.getId()));
+        audit.record("create", "invite", loaded.getId(), "Created invite " + loaded.getInviteName());
         return toDto(loaded);
     }
 
     @Transactional
     public InviteDto updateInvite(String inviteId, UpdateInviteRequest req) {
-        InviteEntity inv = invites.findById(inviteId).orElseThrow();
+        InviteEntity inv = invites.findByIdAndPlanId(inviteId, auth.currentPlanId()).orElseThrow();
         String oldInviteName = inv.getInviteName();
         if (req.inviteName() != null && !req.inviteName().trim().isEmpty()) {
             String newInviteName = req.inviteName().trim();
@@ -112,18 +118,20 @@ public class InvitesFacade {
         inv.setNotes(blankToNull(req.notes()));
         invites.save(inv);
         inv.setInvitees(invitees.findByInvite_Id(inv.getId()));
+        audit.record("update", "invite", inv.getId(), "Updated invite " + inv.getInviteName());
         return toDto(inv);
     }
 
     @Transactional
     public void deleteInvite(String inviteId) {
-        // child rows are FK cascade delete (orphanRemoval) but ensure via repo
-        invites.deleteById(inviteId);
+        InviteEntity invite = invites.findByIdAndPlanId(inviteId, auth.currentPlanId()).orElseThrow();
+        invites.delete(invite);
+        audit.record("delete", "invite", inviteId, "Deleted invite " + invite.getInviteName());
     }
 
     @Transactional
     public InviteeDto addInvitee(String inviteId, CreateInviteeRequest req) {
-        InviteEntity inv = invites.findById(inviteId).orElseThrow();
+        InviteEntity inv = invites.findByIdAndPlanId(inviteId, auth.currentPlanId()).orElseThrow();
         InviteeEntity e = new InviteeEntity();
         e.setId(ids.uid("pers"));
         e.setInvite(inv);
@@ -132,31 +140,34 @@ public class InvitesFacade {
         e.setMealChoice(blankToNull(req.mealChoice()));
         e.setNotes(blankToNull(req.notes()));
         invitees.save(e);
+        audit.record("create", "invitee", e.getId(), "Added invitee " + e.getFullName());
         return toDto(e);
     }
 
     @Transactional
     public InviteeDto updateInvitee(String inviteeId, UpdateInviteeRequest req) {
-        InviteeEntity e = invitees.findById(inviteeId).orElseThrow();
+        InviteeEntity e = invitees.findByIdAndInvite_PlanId(inviteeId, auth.currentPlanId()).orElseThrow();
         if (req.fullName() != null && !req.fullName().trim().isEmpty()) e.setFullName(req.fullName().trim());
         if (req.rsvp() != null) e.setRsvp(normalizeRsvp(req.rsvp()));
         e.setMealChoice(blankToNull(req.mealChoice()));
         e.setNotes(blankToNull(req.notes()));
         invitees.save(e);
+        audit.record("update", "invitee", e.getId(), "Updated invitee " + e.getFullName());
         return toDto(e);
     }
 
     @Transactional
     public InviteeDto patchInviteeRsvp(String inviteeId, String rsvp) {
-        InviteeEntity e = invitees.findById(inviteeId).orElseThrow();
+        InviteeEntity e = invitees.findByIdAndInvite_PlanId(inviteeId, auth.currentPlanId()).orElseThrow();
         e.setRsvp(normalizeRsvp(rsvp));
         invitees.save(e);
+        audit.record("update", "invitee_rsvp", e.getId(), "Updated RSVP for " + e.getFullName());
         return toDto(e);
     }
 
     @Transactional
     public List<InviteeDto> patchInviteRsvp(String inviteId, String rsvp, boolean includeCompanions) {
-        InviteEntity inv = invites.findById(inviteId).orElseThrow();
+        InviteEntity inv = invites.findByIdAndPlanId(inviteId, auth.currentPlanId()).orElseThrow();
         List<InviteeEntity> companions = invitees.findByInvite_Id(inviteId);
         if (companions.isEmpty()) return List.of();
 
@@ -180,12 +191,15 @@ public class InvitesFacade {
 
         primary.setRsvp(normalized);
         invitees.save(primary);
+        audit.record("update", "invite_rsvp", inviteId, "Patched RSVP for invite " + inv.getInviteName());
         return List.of(toDto(primary));
     }
 
     @Transactional
     public void deleteInvitee(String inviteeId) {
-        invitees.deleteById(inviteeId);
+        InviteeEntity invitee = invitees.findByIdAndInvite_PlanId(inviteeId, auth.currentPlanId()).orElseThrow();
+        invitees.delete(invitee);
+        audit.record("delete", "invitee", inviteeId, "Deleted invitee " + invitee.getFullName());
     }
 
     private InviteDto toDto(InviteEntity inv) {

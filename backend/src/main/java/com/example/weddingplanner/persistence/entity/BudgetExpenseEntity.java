@@ -33,6 +33,9 @@ public class BudgetExpenseEntity {
     @Column(name = "notes")
     private String notes;
 
+    @Column(name = "plan_id", nullable = false, length = 50)
+    private String planId;
+
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
 
@@ -53,4 +56,7 @@ public class BudgetExpenseEntity {
 
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
+
+    public String getPlanId() { return planId; }
+    public void setPlanId(String planId) { this.planId = planId; }
 }

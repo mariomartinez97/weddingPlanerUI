@@ -1,0 +1,31 @@
+package com.example.weddingplanner.service;
+
+import com.example.weddingplanner.persistence.entity.AuditLogEntity;
+import com.example.weddingplanner.persistence.repo.AuditLogRepository;
+import org.springframework.stereotype.Service;
+
+@Service
+public class AuditService {
+
+    private final AuditLogRepository audits;
+    private final IdService ids;
+    private final AuthContextService auth;
+
+    public AuditService(AuditLogRepository audits, IdService ids, AuthContextService auth) {
+        this.audits = audits;
+        this.ids = ids;
+        this.auth = auth;
+    }
+
+    public void record(String action, String entityType, String entityId, String summary) {
+        AuditLogEntity entry = new AuditLogEntity();
+        entry.setId(ids.uid("audit"));
+        entry.setUserId(auth.currentUserId());
+        entry.setPlanId(auth.currentPlanId());
+        entry.setAction(action);
+        entry.setEntityType(entityType);
+        entry.setEntityId(entityId);
+        entry.setSummary(summary);
+        audits.save(entry);
+    }
+}
