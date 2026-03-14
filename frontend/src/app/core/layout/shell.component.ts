@@ -82,9 +82,6 @@ import { NgIf } from '@angular/common';
     }
 
     .language-toggle {
-      position: fixed;
-      left: 16px;
-      bottom: 16px;
       z-index: 30;
       display: inline-flex;
       gap: 4px;
@@ -192,21 +189,17 @@ import { NgIf } from '@angular/common';
 
         <span style="flex:1 1 auto"></span>
 
-        <button mat-stroked-button color="primary" (click)="seedDemo()">
-          {{ 'seedDemoData' | t }}
-        </button>
+        <div class="language-toggle" aria-label="Language toggle">
+          <button mat-stroked-button type="button" [class.active]="language() === 'en'" (click)="setLanguage('en')">
+            {{ 'shortEn' | t }}
+          </button>
+          <button mat-stroked-button type="button" [class.active]="language() === 'es'" (click)="setLanguage('es')">
+            {{ 'shortEs' | t }}
+          </button>
+        </div>
       </mat-toolbar>
 
       <router-outlet></router-outlet>
-
-      <div class="language-toggle" aria-label="Language toggle">
-        <button mat-stroked-button type="button" [class.active]="language() === 'en'" (click)="setLanguage('en')">
-          {{ 'shortEn' | t }}
-        </button>
-        <button mat-stroked-button type="button" [class.active]="language() === 'es'" (click)="setLanguage('es')">
-          {{ 'shortEs' | t }}
-        </button>
-      </div>
     </mat-sidenav-content>
 
   </mat-sidenav-container>
