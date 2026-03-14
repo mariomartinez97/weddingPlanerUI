@@ -31,6 +31,10 @@ export class AuthService {
     return this.session()?.plans ?? [];
   }
 
+  isAdmin() {
+    return !!this.session()?.user?.isAdmin;
+  }
+
   async login(payload: LoginPayload) {
     const session = await firstValueFrom(this.http.post<AuthSession>('/api/auth/login', payload));
     this.session.set(session);

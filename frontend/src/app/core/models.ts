@@ -79,6 +79,7 @@ export interface AuthUser {
   id: string;
   email: string;
   displayName: string;
+  isAdmin: boolean;
 }
 
 export interface AuthSession {
@@ -98,4 +99,12 @@ export interface AuditEntry {
   entityId?: string;
   summary?: string;
   createdAt?: string;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  displayName: string;
+  isAdmin: boolean;
+  planIds: string[];
 }

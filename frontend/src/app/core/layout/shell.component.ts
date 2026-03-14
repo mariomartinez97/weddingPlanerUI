@@ -192,6 +192,16 @@ import { NgFor, NgIf } from '@angular/common';
           <span matListItemTitle>Activity</span>
         </a>
 
+        <a mat-list-item
+           class="nav-item"
+           routerLink="/admin"
+           routerLinkActive="active"
+           (click)="closeIfMobile()"
+           *ngIf="isAdmin()">
+          <mat-icon matListItemIcon>admin_panel_settings</mat-icon>
+          <span matListItemTitle>Admin</span>
+        </a>
+
       </mat-nav-list>
     </mat-sidenav>
 
@@ -250,6 +260,7 @@ export class ShellComponent {
   language = this.i18n.language;
   plans = () => this.auth.plans();
   activePlanId = this.auth.activePlanId;
+  isAdmin = () => this.auth.isAdmin();
 
   constructor() {
     this.bp.observe([Breakpoints.Handset])

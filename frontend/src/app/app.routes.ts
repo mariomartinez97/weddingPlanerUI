@@ -10,6 +10,7 @@ import { CalendarPageComponent } from './features/calendar/calendar-page.compone
 import { SeatingPageComponent } from './features/seating/seating-page.component';
 import { LoginPageComponent } from './features/auth/login-page.component';
 import { AuditPageComponent } from './features/audit/audit-page.component';
+import { AdminPageComponent } from './features/admin/admin-page.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginPageComponent },
@@ -25,6 +26,7 @@ export const routes: Routes = [
       { path: 'calendar', component: CalendarPageComponent },
       { path: 'seating', component: SeatingPageComponent },
       { path: 'activity', component: AuditPageComponent },
+      { path: 'admin', component: AdminPageComponent },
     ]
   },
   { path: '**', redirectTo: '' }
