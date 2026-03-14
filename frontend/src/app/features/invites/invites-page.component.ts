@@ -11,11 +11,13 @@ import { MatInputModule } from '@angular/material/input';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { TranslatePipe } from '../../core/pipes/translate.pipe';
 
 import { Invitee, Party, RSVPStatus } from '../../core/models';
 import { InvitesService } from '../../core/services/invites.service';
 import { InviteFormDialogComponent } from './invite-form-dialog.component';
 import { ExcelImportDialogComponent } from './excel-import-dialog.component';
+import { I18nService } from '../../core/services/i18n.service';
 
 type PartyRow = {
   party: Party;
@@ -29,30 +31,30 @@ type PartyRow = {
     NgIf, NgFor, AsyncPipe,
     FormsModule,
     MatButtonModule, MatIconModule, MatTableModule, MatChipsModule, MatMenuModule,
-    MatInputModule, MatDialogModule, MatSelectModule, MatTooltipModule,
+    MatInputModule, MatDialogModule, MatSelectModule, MatTooltipModule, TranslatePipe,
   ],
   template: `
   <div class="page">
     <div class="page-header">
       <div>
-        <div class="page-title">Invites</div>
-        <div class="page-subtitle">Upload Excel, add invites manually, track RSVP + meals per person.</div>
+        <div class="page-title">{{ 'invitesTitle' | t }}</div>
+        <div class="page-subtitle">{{ 'invitesSubtitle' | t }}</div>
       </div>
 
       <div style="display:flex; gap:10px; flex-wrap:wrap;">
         <button mat-stroked-button (click)="openImport()">
           <mat-icon>upload</mat-icon>
-          Upload Excel
+          {{ 'uploadExcel' | t }}
         </button>
 
         <button mat-flat-button color="primary" (click)="openInviteForm()">
           <mat-icon>person_add</mat-icon>
-          New Invite
+          {{ 'newInvite' | t }}
         </button>
 
         <button mat-stroked-button (click)="exportRsvpCsv()">
           <mat-icon>download</mat-icon>
-          Export RSVP
+          {{ 'exportRsvp' | t }}
         </button>
       </div>
     </div>
@@ -61,25 +63,25 @@ type PartyRow = {
       <div class="col-12 card">
         <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
           <mat-form-field appearance="fill" style="max-width:360px;">
-            <mat-label>Search</mat-label>
-            <input matInput [ngModel]="q()" (ngModelChange)="q.set($event)" placeholder="Invite name, companion, email, phone...">
+            <mat-label>{{ 'search' | t }}</mat-label>
+            <input matInput [ngModel]="q()" (ngModelChange)="q.set($event)" [placeholder]="'searchInvitesPlaceholder' | t">
           </mat-form-field>
 
           <mat-chip-listbox [value]="filter()" (change)="filter.set($event.value)">
-            <mat-chip-option value="ALL">All ({{counts().all}})</mat-chip-option>
-            <mat-chip-option value="YES">Yes ({{counts().yes}})</mat-chip-option>
-            <mat-chip-option value="PENDING">Pending ({{counts().pending}})</mat-chip-option>
-            <mat-chip-option value="NO">No ({{counts().no}})</mat-chip-option>
-            <mat-chip-option value="MAYBE">Maybe ({{counts().maybe}})</mat-chip-option>
+            <mat-chip-option value="ALL">{{ 'all' | t }} ({{counts().all}})</mat-chip-option>
+            <mat-chip-option value="YES">{{ 'yes' | t }} ({{counts().yes}})</mat-chip-option>
+            <mat-chip-option value="PENDING">{{ 'pending' | t }} ({{counts().pending}})</mat-chip-option>
+            <mat-chip-option value="NO">{{ 'no' | t }} ({{counts().no}})</mat-chip-option>
+            <mat-chip-option value="MAYBE">{{ 'maybe' | t }} ({{counts().maybe}})</mat-chip-option>
           </mat-chip-listbox>
 
           <span style="flex:1 1 auto"></span>
 
-          <button mat-icon-button matTooltip="Reload" (click)="reload()">
+          <button mat-icon-button [matTooltip]="'reload' | t" (click)="reload()">
             <mat-icon>refresh</mat-icon>
           </button>
 
-          <button mat-icon-button matTooltip="Clear all invites" (click)="clearAll()">
+          <button mat-icon-button [matTooltip]="'clearAllInvites' | t" (click)="clearAll()">
             <mat-icon>delete_forever</mat-icon>
           </button>
         </div>
@@ -90,18 +92,18 @@ type PartyRow = {
 
           <!-- Invite (Party) -->
           <ng-container matColumnDef="invite">
-            <th mat-header-cell *matHeaderCellDef>Invite</th>
+            <th mat-header-cell *matHeaderCellDef>{{ 'invite' | t }}</th>
             <td mat-cell *matCellDef="let row">
               <div style="font-weight:700;">{{ row.party.inviteName }}</div>
               <div style="opacity:.75; font-size:12px; margin-top:2px;">
-                {{ row.companions.length }} companion(s)
+                {{ row.companions.length }} {{ 'companionCount' | t }}
               </div>
             </td>
           </ng-container>
 
           <!-- Contact (Party contact) -->
           <ng-container matColumnDef="contact">
-            <th mat-header-cell *matHeaderCellDef>Contact</th>
+            <th mat-header-cell *matHeaderCellDef>{{ 'contact' | t }}</th>
             <td mat-cell *matCellDef="let row">
               <div style="opacity:.95;">{{ row.party.contact?.email || '—' }}</div>
               <div style="opacity:.7; font-size:12px;">{{ row.party.contact?.phone || '' }}</div>
@@ -110,9 +112,9 @@ type PartyRow = {
 
           <!-- Companions list -->
           <ng-container matColumnDef="companions">
-            <th mat-header-cell *matHeaderCellDef>Companions (RSVP + Meal per person)</th>
+            <th mat-header-cell *matHeaderCellDef>{{ 'companionsDetail' | t }}</th>
             <td mat-cell *matCellDef="let row">
-              <div *ngIf="row.companions.length===0" style="opacity:.75;">No companions yet</div>
+              <div *ngIf="row.companions.length===0" style="opacity:.75;">{{ 'noCompanionsYet' | t }}</div>
 
               <div *ngFor="let c of row.companions" style="display:flex; gap:12px; align-items:center; padding:8px 0; border-bottom: 1px solid rgba(0,0,0,0.06);">
                 <div style="flex:1; min-width:200px;">
@@ -122,24 +124,24 @@ type PartyRow = {
 
                 <mat-form-field appearance="fill" style="width:170px;">
                   <mat-select [value]="c.rsvp" (selectionChange)="setRsvp(c, $event.value)">
-                    <mat-option value="PENDING">Pending</mat-option>
-                    <mat-option value="YES">Yes</mat-option>
-                    <mat-option value="NO">No</mat-option>
-                    <mat-option value="MAYBE">Maybe</mat-option>
+                    <mat-option value="PENDING">{{ 'pending' | t }}</mat-option>
+                    <mat-option value="YES">{{ 'yes' | t }}</mat-option>
+                    <mat-option value="NO">{{ 'no' | t }}</mat-option>
+                    <mat-option value="MAYBE">{{ 'maybe' | t }}</mat-option>
                   </mat-select>
                 </mat-form-field>
 
-                <button mat-icon-button [matMenuTriggerFor]="menuC" aria-label="Companion menu">
+                <button mat-icon-button [matMenuTriggerFor]="menuC" [attr.aria-label]="i18n.t('companionMenu')">
                   <mat-icon>more_vert</mat-icon>
                 </button>
                 <mat-menu #menuC="matMenu">
                   <button mat-menu-item (click)="openInviteForm(c)">
                     <mat-icon>edit</mat-icon>
-                    Edit person
+                    {{ 'editPerson' | t }}
                   </button>
                   <button mat-menu-item (click)="deletePerson(c)">
                     <mat-icon>delete</mat-icon>
-                    Delete person
+                    {{ 'deletePerson' | t }}
                   </button>
                 </mat-menu>
               </div>
@@ -147,7 +149,7 @@ type PartyRow = {
               <div style="padding-top:10px;">
                 <button mat-stroked-button (click)="addCompanionPrompt(row.party)">
                   <mat-icon>person_add</mat-icon>
-                  Add companion
+                  {{ 'addCompanion' | t }}
                 </button>
               </div>
             </td>
@@ -161,11 +163,11 @@ type PartyRow = {
               <mat-menu #menuP="matMenu">
                 <button mat-menu-item (click)="openInviteForm(undefined, row.party)">
                   <mat-icon>edit</mat-icon>
-                  Edit invite
+                  {{ 'editInvite' | t }}
                 </button>
                 <button mat-menu-item (click)="deleteInvite(row.party)">
                   <mat-icon>delete</mat-icon>
-                  Delete invite
+                  {{ 'deleteInvite' | t }}
                 </button>
               </mat-menu>
             </td>
@@ -176,7 +178,7 @@ type PartyRow = {
         </table>
 
         <div *ngIf="partyRows().length===0" style="padding:18px; opacity:.8;">
-          No invites yet. Upload an Excel or add an invite manually.
+          {{ 'noInvitesYet' | t }}
         </div>
       </div>
     </div>
@@ -185,6 +187,7 @@ type PartyRow = {
 })
 export class InvitesPageComponent {
   readonly svc = inject(InvitesService);
+  readonly i18n = inject(I18nService);
   private dialog = inject(MatDialog);
   private store = toSignal(this.svc.storeObs$, {
     initialValue: this.svc.snapshot,

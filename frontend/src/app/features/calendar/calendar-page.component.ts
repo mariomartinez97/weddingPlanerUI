@@ -6,10 +6,12 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatMenuModule } from '@angular/material/menu';
+import { TranslatePipe } from '../../core/pipes/translate.pipe';
 
 import { CalendarService } from '../../core/services/calendar.service';
 import { Appointment } from '../../core/models';
 import { AppointmentDialogComponent } from './appointment-dialog.component';
+import { I18nService } from '../../core/services/i18n.service';
 
 function toISODate(d: Date): string {
   const pad = (n: number) => String(n).padStart(2,'0');
@@ -22,30 +24,28 @@ function toISODate(d: Date): string {
   imports: [
     NgIf, NgFor, DatePipe,
     MatButtonModule, MatIconModule, MatDialogModule,
-    MatChipsModule, MatMenuModule
+    MatChipsModule, MatMenuModule, TranslatePipe
   ],
   template: `
   <div class="page">
     <div class="page-header">
       <div>
-        <div class="page-title">Calendar</div>
-        <div class="page-subtitle">
-          All appointments with planner, venue manager, and providers.
-        </div>
+        <div class="page-title">{{ 'calendarTitle' | t }}</div>
+        <div class="page-subtitle">{{ 'calendarSubtitle' | t }}</div>
       </div>
       <button mat-flat-button color="primary" (click)="open()">
-        <mat-icon>add</mat-icon> New appointment
+        <mat-icon>add</mat-icon> {{ 'newAppointment' | t }}
       </button>
     </div>
 
     <div class="card">
 
       <div style="opacity:.75; font-size:12px; margin-bottom:12px;">
-        {{ filteredRows().length }} appointment(s)
+        {{ filteredRows().length }} {{ 'appointmentCount' | t }}
       </div>
 
       <div *ngIf="filteredRows().length===0" style="padding:14px 0; opacity:.8;">
-        No appointments yet.
+        {{ 'noAppointmentsYet' | t }}
       </div>
 
       <div *ngFor="let a of filteredRows()" 
@@ -62,12 +62,12 @@ function toISODate(d: Date): string {
           </div>
 
           <div style="opacity:.85; margin-top:4px;">
-            {{a.start | date:'fullDate'}} · {{timeRange(a)}}
+            {{fullDate(a.start)}} · {{timeRange(a)}}
             <span *ngIf="a.location"> · {{a.location}}</span>
           </div>
 
           <div style="opacity:.75; font-size:12px; margin-top:4px;">
-            With: <b>{{a.withWhom}}</b>
+            {{ 'with' | t }}: <b>{{a.withWhom}}</b>
           </div>
 
           <div *ngIf="a.notes" style="opacity:.8; font-size:13px; margin-top:6px;">
@@ -81,10 +81,10 @@ function toISODate(d: Date): string {
 
         <mat-menu #menu="matMenu">
           <button mat-menu-item (click)="open(a)">
-            <mat-icon>edit</mat-icon> Edit
+            <mat-icon>edit</mat-icon> {{ 'edit' | t }}
           </button>
           <button mat-menu-item (click)="del(a)">
-            <mat-icon>delete</mat-icon> Delete
+            <mat-icon>delete</mat-icon> {{ 'delete' | t }}
           </button>
         </mat-menu>
       </div>
@@ -95,6 +95,7 @@ function toISODate(d: Date): string {
 })
 export class CalendarPageComponent {
   readonly svc = inject(CalendarService);
+  private i18n = inject(I18nService);
   private dialog = inject(MatDialog);
   private store = toSignal(this.svc.storeObs$, { initialValue: this.svc.snapshot });
 
@@ -119,9 +120,9 @@ export class CalendarPageComponent {
   }
 
   label(t: Appointment['type']) {
-    if (t === 'WEDDING_PLANNER') return 'Wedding planner';
-    if (t === 'VENUE_MANAGER') return 'Venue manager';
-    return 'Provider';
+    if (t === 'WEDDING_PLANNER') return this.i18n.t('weddingPlanner');
+    if (t === 'VENUE_MANAGER') return this.i18n.t('venueManager');
+    return this.i18n.t('provider');
   }
 
   dotColor(t: Appointment['type']) {
@@ -133,7 +134,16 @@ export class CalendarPageComponent {
   timeRange(a: Appointment) {
     const s = new Date(a.start);
     const e = new Date(a.end);
-    const fmt = (d: Date) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const fmt = (d: Date) => d.toLocaleTimeString(this.i18n.locale(), { hour: '2-digit', minute: '2-digit' });
     return `${fmt(s)} – ${fmt(e)}`;
+  }
+
+  fullDate(value: string) {
+    return new Intl.DateTimeFormat(this.i18n.locale(), {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    }).format(new Date(value));
   }
 }

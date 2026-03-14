@@ -6,50 +6,52 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatTableModule } from '@angular/material/table';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { TranslatePipe } from '../../core/pipes/translate.pipe';
 
 import { BudgetService } from '../../core/services/budget.service';
 import { BudgetSettingsDialogComponent } from './budget-settings-dialog.component';
 import { ExpenseDialogComponent } from './expense-dialog.component';
 import { Expense } from '../../core/models';
+import { I18nService } from '../../core/services/i18n.service';
 
 @Component({
   selector: 'app-budget-page',
   standalone: true,
   imports: [
     NgIf, NgFor, CurrencyPipe,
-    MatButtonModule, MatIconModule, MatDialogModule, MatTableModule, MatSlideToggleModule
+    MatButtonModule, MatIconModule, MatDialogModule, MatTableModule, MatSlideToggleModule, TranslatePipe
   ],
   template: `
   <div class="page">
     <div class="page-header">
       <div>
-        <div class="page-title">Budget</div>
-        <div style="opacity:.8; font-size:13px;">Set total budget, track expenses, see remaining.</div>
+        <div class="page-title">{{ 'budgetTitle' | t }}</div>
+        <div style="opacity:.8; font-size:13px;">{{ 'budgetSubtitle' | t }}</div>
       </div>
       <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <button mat-stroked-button (click)="openSettings()"><mat-icon>tune</mat-icon> Set Total Budget</button>
-        <button mat-flat-button color="primary" (click)="openExpense()"><mat-icon>add</mat-icon> Add Expense</button>
+        <button mat-stroked-button (click)="openSettings()"><mat-icon>tune</mat-icon> {{ 'setTotalBudget' | t }}</button>
+        <button mat-flat-button color="primary" (click)="openExpense()"><mat-icon>add</mat-icon> {{ 'addExpense' | t }}</button>
       </div>
     </div>
 
     <div class="grid">
       <div class="col-4 card">
-        <div style="opacity:.75; font-size:13px;">Total budget</div>
+        <div style="opacity:.75; font-size:13px;">{{ 'totalBudget' | t }}</div>
         <div style="font-size:26px; font-weight:800; margin-top:6px;">
           {{ total() | currency:currency():'symbol':'1.0-0' }}
         </div>
       </div>
       <div class="col-4 card">
-        <div style="opacity:.75; font-size:13px;">Total spent</div>
+        <div style="opacity:.75; font-size:13px;">{{ 'totalSpent' | t }}</div>
         <div style="font-size:26px; font-weight:800; margin-top:6px;">
           {{ spent() | currency:currency():'symbol':'1.0-0' }}
         </div>
         <div style="opacity:.75; font-size:12px; margin-top:6px;">
-          Paid: {{ paidTotal() | currency:currency():'symbol':'1.0-0' }} · Unpaid: {{ unpaidTotal() | currency:currency():'symbol':'1.0-0' }}
+          {{ 'paid' | t }}: {{ paidTotal() | currency:currency():'symbol':'1.0-0' }} · {{ 'unpaid' | t }}: {{ unpaidTotal() | currency:currency():'symbol':'1.0-0' }}
         </div>
       </div>
       <div class="col-4 card">
-        <div style="opacity:.75; font-size:13px;">Remaining</div>
+        <div style="opacity:.75; font-size:13px;">{{ 'remaining' | t }}</div>
         <div style="font-size:26px; font-weight:800; margin-top:6px;" [style.color]="remaining() < 0 ? '#ffb4b4' : ''">
           {{ remaining() | currency:currency():'symbol':'1.0-0' }}
         </div>
@@ -57,12 +59,12 @@ import { Expense } from '../../core/models';
 
       <div class="col-12 card" style="overflow:auto;">
         <table mat-table [dataSource]="expenses()" class="mat-elevation-z0" style="min-width:980px;">
-          <ng-container matColumnDef="category"><th mat-header-cell *matHeaderCellDef>Category</th><td mat-cell *matCellDef="let e">{{e.category}}</td></ng-container>
-          <ng-container matColumnDef="vendor"><th mat-header-cell *matHeaderCellDef>Vendor</th><td mat-cell *matCellDef="let e">{{e.vendor || '—'}}</td></ng-container>
-          <ng-container matColumnDef="amount"><th mat-header-cell *matHeaderCellDef>Amount</th><td mat-cell *matCellDef="let e">{{e.amount | currency:currency()}}</td></ng-container>
-          <ng-container matColumnDef="date"><th mat-header-cell *matHeaderCellDef>Date</th><td mat-cell *matCellDef="let e">{{e.date || '—'}}</td></ng-container>
+          <ng-container matColumnDef="category"><th mat-header-cell *matHeaderCellDef>{{ 'category' | t }}</th><td mat-cell *matCellDef="let e">{{e.category}}</td></ng-container>
+          <ng-container matColumnDef="vendor"><th mat-header-cell *matHeaderCellDef>{{ 'vendor' | t }}</th><td mat-cell *matCellDef="let e">{{e.vendor || '—'}}</td></ng-container>
+          <ng-container matColumnDef="amount"><th mat-header-cell *matHeaderCellDef>{{ 'amount' | t }}</th><td mat-cell *matCellDef="let e">{{e.amount | currency:currency()}}</td></ng-container>
+          <ng-container matColumnDef="date"><th mat-header-cell *matHeaderCellDef>{{ 'date' | t }}</th><td mat-cell *matCellDef="let e">{{e.date || '—'}}</td></ng-container>
           <ng-container matColumnDef="paid">
-            <th mat-header-cell *matHeaderCellDef>Paid</th>
+            <th mat-header-cell *matHeaderCellDef>{{ 'paid' | t }}</th>
             <td mat-cell *matCellDef="let e">
               <mat-slide-toggle [checked]="e.paid" (change)="togglePaid(e, $event.checked)"></mat-slide-toggle>
             </td>
@@ -80,7 +82,7 @@ import { Expense } from '../../core/models';
         </table>
 
         <div *ngIf="expenses().length===0" style="padding:18px; opacity:.8;">
-          No expenses yet. Add your first expense.
+          {{ 'noExpensesYet' | t }}
         </div>
       </div>
     </div>
@@ -89,6 +91,7 @@ import { Expense } from '../../core/models';
 })
 export class BudgetPageComponent {
   private svc = inject(BudgetService);
+  private i18n = inject(I18nService);
   private dialog = inject(MatDialog);
   private store = toSignal(this.svc.storeObs$, { initialValue: this.svc.snapshot });
 
