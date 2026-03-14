@@ -4,89 +4,86 @@ import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/materia
 import { MatButtonModule } from '@angular/material/button';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { TranslatePipe } from '../../core/pipes/translate.pipe';
 
 import { CalendarService } from '../../core/services/calendar.service';
 import { Appointment } from '../../core/models';
-import { I18nService } from '../../core/services/i18n.service';
 
 type DialogData = { existing?: Appointment };
 
 @Component({
   selector: 'app-appointment-dialog',
   standalone: true,
-  imports: [ReactiveFormsModule, MatDialogModule, MatButtonModule, MatInputModule, MatSelectModule, TranslatePipe],
+  imports: [ReactiveFormsModule, MatDialogModule, MatButtonModule, MatInputModule, MatSelectModule],
   template: `
-  <h2 mat-dialog-title>{{data.existing ? ('editAppointment' | t) : ('newAppointment' | t)}}</h2>
+  <h2 mat-dialog-title>{{data.existing ? 'Edit appointment' : 'New appointment'}}</h2>
   <div mat-dialog-content>
     <form [formGroup]="form" class="grid">
       <div class="col-6">
         <mat-form-field appearance="fill">
-          <mat-label>{{ 'type' | t }}</mat-label>
+          <mat-label>Type</mat-label>
           <mat-select formControlName="type">
-            <mat-option value="WEDDING_PLANNER">{{ 'weddingPlanner' | t }}</mat-option>
-            <mat-option value="VENUE_MANAGER">{{ 'venueManager' | t }}</mat-option>
-            <mat-option value="PROVIDER">{{ 'provider' | t }}</mat-option>
+            <mat-option value="WEDDING_PLANNER">Wedding planner</mat-option>
+            <mat-option value="VENUE_MANAGER">Venue manager</mat-option>
+            <mat-option value="PROVIDER">Provider</mat-option>
           </mat-select>
         </mat-form-field>
       </div>
       <div class="col-6">
         <mat-form-field appearance="fill">
-          <mat-label>{{ 'withLabel' | t }}</mat-label>
-          <input matInput formControlName="withWhom" [placeholder]="'nameOrCompany' | t">
+          <mat-label>With</mat-label>
+          <input matInput formControlName="withWhom" placeholder="Name / company">
         </mat-form-field>
       </div>
 
       <div class="col-12">
         <mat-form-field appearance="fill">
-          <mat-label>{{ 'title' | t }}</mat-label>
+          <mat-label>Title</mat-label>
           <input matInput formControlName="title">
         </mat-form-field>
       </div>
 
       <div class="col-6">
         <mat-form-field appearance="fill">
-          <mat-label>{{ 'startIso' | t }}</mat-label>
+          <mat-label>Start (ISO)</mat-label>
           <input matInput formControlName="start" placeholder="2026-03-05T18:00:00">
         </mat-form-field>
       </div>
       <div class="col-6">
         <mat-form-field appearance="fill">
-          <mat-label>{{ 'endIso' | t }}</mat-label>
+          <mat-label>End (ISO)</mat-label>
           <input matInput formControlName="end" placeholder="2026-03-05T18:45:00">
         </mat-form-field>
       </div>
 
       <div class="col-12">
         <mat-form-field appearance="fill">
-          <mat-label>{{ 'location' | t }}</mat-label>
-          <input matInput formControlName="location" [placeholder]="'optional' | t">
+          <mat-label>Location</mat-label>
+          <input matInput formControlName="location" placeholder="Optional">
         </mat-form-field>
       </div>
 
       <div class="col-12">
         <mat-form-field appearance="fill">
-          <mat-label>{{ 'notes' | t }}</mat-label>
+          <mat-label>Notes</mat-label>
           <textarea matInput rows="3" formControlName="notes"></textarea>
         </mat-form-field>
       </div>
     </form>
 
     <div style="opacity:.7; font-size:12px;">
-      {{ 'tipPasteIso' | t }}
+      Tip: paste ISO datetimes. We can upgrade this to a datetime picker later.
     </div>
   </div>
   <div mat-dialog-actions align="end">
-    <button mat-button (click)="ref.close()">{{ 'cancel' | t }}</button>
+    <button mat-button (click)="ref.close()">Cancel</button>
     <button mat-flat-button color="primary" [disabled]="form.invalid" (click)="save()">
-      {{data.existing ? i18n.t('save') : i18n.t('create')}}
+      {{data.existing ? 'Save' : 'Create'}}
     </button>
   </div>
   `
 })
 export class AppointmentDialogComponent {
   private svc = inject(CalendarService);
-  readonly i18n = inject(I18nService);
   ref = inject(MatDialogRef<AppointmentDialogComponent>);
 
   form = new FormGroup({

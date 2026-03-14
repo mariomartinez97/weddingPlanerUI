@@ -7,6 +7,3 @@ backend/target/*
 frontend/dist/*
 frontend/dist/wedding-planner-ui/browser/main.js
 frontend/dist/wedding-planner-ui/browser/main.js.map
-frontend/dist/wedding-planner-ui/browser/shell.component.css.map
-frontend/dist/wedding-planner-ui/browser/main.js.map
-frontend/dist/wedding-planner-ui/browser/main.js

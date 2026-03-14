@@ -5,7 +5,6 @@ import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
-import { TranslatePipe } from '../../core/pipes/translate.pipe';
 
 import { SeatingService } from '../../core/services/seating.service';
 import { TableDef } from '../../core/models';
@@ -14,7 +13,7 @@ import { uid } from '../../core/services/storage.util';
 @Component({
   selector: 'app-table-editor-dialog',
   standalone: true,
-  imports: [NgFor, ReactiveFormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatInputModule, TranslatePipe],
+  imports: [NgFor, ReactiveFormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatInputModule],
   styles: [`
     .hint { opacity:.78; font-size:13px; margin-bottom:12px; line-height:1.4; }
     .row-card { padding: 14px; border-radius: 16px; }
@@ -32,11 +31,11 @@ import { uid } from '../../core/services/storage.util';
     .note { opacity:.72; font-size:12px; margin-top:12px; line-height:1.35; }
   `],
   template: `
-  <h2 mat-dialog-title>{{ 'defineTablesTitle' | t }}</h2>
+  <h2 mat-dialog-title>Define tables</h2>
 
   <div mat-dialog-content>
     <div class="hint">
-      {{ 'defineTablesHint' | t }}
+      Add/remove tables and set seat capacity per table.
     </div>
 
     <form [formGroup]="form" class="grid">
@@ -48,14 +47,14 @@ import { uid } from '../../core/services/storage.util';
           <div class="row-wrap">
             <div class="field">
               <mat-form-field appearance="fill" style="width:100%;">
-                <mat-label>{{ 'tableName' | t }}</mat-label>
+                <mat-label>Table name</mat-label>
                 <input matInput formControlName="name" placeholder="Table 1">
               </mat-form-field>
             </div>
 
             <div class="seats">
               <mat-form-field appearance="fill" style="width:100%;">
-                <mat-label>{{ 'seats' | t }}</mat-label>
+                <mat-label>Seats</mat-label>
                 <input matInput type="number" min="1" formControlName="seats">
               </mat-form-field>
             </div>
@@ -72,7 +71,7 @@ import { uid } from '../../core/services/storage.util';
 
     <div class="quick-row">
       <button type="button" mat-stroked-button (click)="add()">
-        <span class="btn-gap"><mat-icon>add</mat-icon><span class="txt">{{ 'addTable' | t }}</span></span>
+        <span class="btn-gap"><mat-icon>add</mat-icon><span class="txt">Add table</span></span>
       </button>
 
       <button type="button" mat-stroked-button (click)="quickCreate(10, 8)">
@@ -85,13 +84,13 @@ import { uid } from '../../core/services/storage.util';
     </div>
 
     <div class="note">
-      {{ 'noteRemoveTable' | t }}
+      Note: if you remove a table, any assignments in that table will be removed.
     </div>
   </div>
 
   <div mat-dialog-actions align="end" style="gap:10px;">
-    <button type="button" mat-button (click)="ref.close()">{{ 'cancel' | t }}</button>
-    <button type="button" mat-flat-button color="primary" [disabled]="tables.length===0" (click)="save()">{{ 'save' | t }}</button>
+    <button type="button" mat-button (click)="ref.close()">Cancel</button>
+    <button type="button" mat-flat-button color="primary" [disabled]="tables.length===0" (click)="save()">Save</button>
   </div>
   `
 })

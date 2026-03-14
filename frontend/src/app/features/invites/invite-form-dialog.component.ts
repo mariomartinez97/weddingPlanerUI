@@ -7,11 +7,9 @@ import { MatDialogModule } from '@angular/material/dialog';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatDividerModule } from '@angular/material/divider';
-import { TranslatePipe } from '../../core/pipes/translate.pipe';
 
 import { Invitee, Party, RSVPStatus } from '../../core/models';
 import { InvitesService } from '../../core/services/invites.service';
-import { I18nService } from '../../core/services/i18n.service';
 
 type DialogData = {
   existingInvitee?: Invitee;   // editing a companion/person
@@ -24,7 +22,7 @@ type DialogData = {
   imports: [
     NgIf,
     ReactiveFormsModule,
-    MatDialogModule, MatButtonModule, MatInputModule, MatSelectModule, MatDividerModule, TranslatePipe
+    MatDialogModule, MatButtonModule, MatInputModule, MatSelectModule, MatDividerModule
   ],
   template: `
   <h2 mat-dialog-title>{{ title() }}</h2>
@@ -36,12 +34,12 @@ type DialogData = {
          ============================ -->
     <ng-container *ngIf="isEditingPerson(); else inviteFlow">
       <div class="section">
-        <div class="section-title">{{ 'companionPerson' | t }}</div>
+        <div class="section-title">Companion (person)</div>
 
         <form [formGroup]="personForm" class="grid">
           <div class="col-12">
             <mat-form-field appearance="fill">
-              <mat-label>{{ 'companionFullName' | t }}</mat-label>
+              <mat-label>Companion full name</mat-label>
               <input matInput formControlName="fullName" placeholder="e.g., Juan Gomez">
             </mat-form-field>
           </div>
@@ -50,25 +48,25 @@ type DialogData = {
             <mat-form-field appearance="fill">
               <mat-label>RSVP</mat-label>
               <mat-select formControlName="rsvp">
-                <mat-option value="PENDING">{{ 'rsvpPending' | t }}</mat-option>
-                <mat-option value="YES">{{ 'rsvpYes' | t }}</mat-option>
-                <mat-option value="NO">{{ 'rsvpNo' | t }}</mat-option>
-                <mat-option value="MAYBE">{{ 'rsvpMaybe' | t }}</mat-option>
+                <mat-option value="PENDING">Pending</mat-option>
+                <mat-option value="YES">Yes</mat-option>
+                <mat-option value="NO">No</mat-option>
+                <mat-option value="MAYBE">Maybe</mat-option>
               </mat-select>
             </mat-form-field>
           </div>
 
           <div class="col-6">
             <mat-form-field appearance="fill">
-              <mat-label>{{ 'mealChoice' | t }}</mat-label>
-              <input matInput formControlName="mealChoice" [placeholder]="'optional' | t">
+              <mat-label>Meal choice</mat-label>
+              <input matInput formControlName="mealChoice" placeholder="Optional">
             </mat-form-field>
           </div>
 
           <div class="col-12">
             <mat-form-field appearance="fill">
-              <mat-label>{{ 'personNotes' | t }}</mat-label>
-              <textarea matInput rows="2" formControlName="personNotes" [placeholder]="'optional' | t"></textarea>
+              <mat-label>Person notes</mat-label>
+              <textarea matInput rows="2" formControlName="personNotes" placeholder="Optional"></textarea>
             </mat-form-field>
           </div>
         </form>
@@ -81,34 +79,34 @@ type DialogData = {
     <ng-template #inviteFlow>
       <!-- INVITE (Main) -->
       <div class="section">
-        <div class="section-title">{{ 'inviteMain' | t }}</div>
+        <div class="section-title">Invite (main)</div>
 
         <form [formGroup]="partyForm" class="grid">
           <div class="col-12">
             <mat-form-field appearance="fill">
-              <mat-label>{{ 'inviteName' | t }}</mat-label>
+              <mat-label>Invite name</mat-label>
               <input matInput formControlName="inviteName" placeholder="e.g., Juan Gomez">
             </mat-form-field>
           </div>
 
           <div class="col-6">
             <mat-form-field appearance="fill">
-              <mat-label>{{ 'contactEmail' | t }}</mat-label>
-              <input matInput formControlName="email" [placeholder]="'optional' | t">
+              <mat-label>Contact email</mat-label>
+              <input matInput formControlName="email" placeholder="Optional">
             </mat-form-field>
           </div>
 
           <div class="col-6">
             <mat-form-field appearance="fill">
-              <mat-label>{{ 'contactPhone' | t }}</mat-label>
-              <input matInput formControlName="phone" [placeholder]="'optional' | t">
+              <mat-label>Contact phone</mat-label>
+              <input matInput formControlName="phone" placeholder="Optional">
             </mat-form-field>
           </div>
 
           <div class="col-12">
             <mat-form-field appearance="fill">
-              <mat-label>{{ 'inviteNotes' | t }}</mat-label>
-              <textarea matInput rows="2" formControlName="partyNotes" [placeholder]="'optional' | t"></textarea>
+              <mat-label>Invite notes</mat-label>
+              <textarea matInput rows="2" formControlName="partyNotes" placeholder="Optional"></textarea>
             </mat-form-field>
           </div>
         </form>
@@ -119,13 +117,13 @@ type DialogData = {
       <!-- OPTIONAL extra companion (only for creating a new invite) -->
       <ng-container *ngIf="isCreatingNewInvite()">
         <div class="section">
-          <div class="section-title">{{ 'addCompanionOptional' | t }}</div>
+          <div class="section-title">Add companion (optional)</div>
 
           <form [formGroup]="companionAddForm" class="grid">
             <div class="col-12">
               <mat-form-field appearance="fill">
-                <mat-label>{{ 'companionFullName' | t }}</mat-label>
-                <input matInput formControlName="fullName" [placeholder]="i18n.t('optional') + ' (e.g., Sofia Chen)'">
+                <mat-label>Companion full name</mat-label>
+                <input matInput formControlName="fullName" placeholder="Optional (e.g., Sofia Chen)">
               </mat-form-field>
             </div>
 
@@ -133,30 +131,30 @@ type DialogData = {
               <mat-form-field appearance="fill">
                 <mat-label>RSVP</mat-label>
                 <mat-select formControlName="rsvp">
-                  <mat-option value="PENDING">{{ 'rsvpPending' | t }}</mat-option>
-                  <mat-option value="YES">{{ 'rsvpYes' | t }}</mat-option>
-                  <mat-option value="NO">{{ 'rsvpNo' | t }}</mat-option>
-                  <mat-option value="MAYBE">{{ 'rsvpMaybe' | t }}</mat-option>
+                  <mat-option value="PENDING">Pending</mat-option>
+                  <mat-option value="YES">Yes</mat-option>
+                  <mat-option value="NO">No</mat-option>
+                  <mat-option value="MAYBE">Maybe</mat-option>
                 </mat-select>
               </mat-form-field>
             </div>
 
             <div class="col-6">
               <mat-form-field appearance="fill">
-                <mat-label>{{ 'mealChoice' | t }}</mat-label>
-                <input matInput formControlName="mealChoice" [placeholder]="'optional' | t">
+                <mat-label>Meal choice</mat-label>
+                <input matInput formControlName="mealChoice" placeholder="Optional">
               </mat-form-field>
             </div>
 
             <div class="col-12">
               <mat-form-field appearance="fill">
-                <mat-label>{{ 'personNotes' | t }}</mat-label>
-                <textarea matInput rows="2" formControlName="personNotes" [placeholder]="'optional' | t"></textarea>
+                <mat-label>Person notes</mat-label>
+                <textarea matInput rows="2" formControlName="personNotes" placeholder="Optional"></textarea>
               </mat-form-field>
             </div>
 
             <div class="col-12" style="opacity:.75; font-size:13px;">
-              {{ 'inviteNameSavedHint' | t }}
+              The invite name is automatically saved as the first person. Use this only for extra companions.
             </div>
           </form>
         </div>
@@ -168,9 +166,9 @@ type DialogData = {
     <div *ngIf="errorMsg()" style="margin-right:auto; color:#b00020; font-size:13px;">
       {{ errorMsg() }}
     </div>
-    <button mat-button (click)="ref.close()">{{ 'cancel' | t }}</button>
+    <button mat-button (click)="ref.close()">Cancel</button>
     <button mat-flat-button color="primary" [disabled]="saveDisabled() || saving()" (click)="save()">
-      {{ saving() ? i18n.t('saving') : i18n.t('save') }}
+      {{ saving() ? 'Saving...' : 'Save' }}
     </button>
   </div>
   `,
@@ -181,7 +179,6 @@ type DialogData = {
 })
 export class InviteFormDialogComponent {
   private svc = inject(InvitesService);
-  readonly i18n = inject(I18nService);
   ref = inject(MatDialogRef<InviteFormDialogComponent>);
   saving = signal(false);
   errorMsg = signal('');
@@ -238,9 +235,9 @@ export class InviteFormDialogComponent {
   isCreatingNewInvite() { return !this.data.existingInvitee && !this.data.existingParty; }
 
   title() {
-    if (this.isEditingPerson()) return this.i18n.t('editCompanion');
-    if (this.isEditingParty()) return this.i18n.t('editInviteTitle');
-    return this.i18n.t('newInvite');
+    if (this.isEditingPerson()) return 'Edit Companion';
+    if (this.isEditingParty()) return 'Edit Invite';
+    return 'New Invite';
   }
 
   saveDisabled() {
@@ -306,7 +303,7 @@ export class InviteFormDialogComponent {
       this.ref.close(true);
     } catch (err: any) {
       const status = err?.status ? ` (HTTP ${err.status})` : '';
-      this.errorMsg.set(`${this.i18n.t('couldNotSaveInvite')}${status}. ${this.i18n.t('checkApiSettings')}`);
+      this.errorMsg.set(`Could not save invite${status}. Check API/rewrite settings and try again.`);
       console.error('Invite save failed', err);
     } finally {
       this.saving.set(false);
