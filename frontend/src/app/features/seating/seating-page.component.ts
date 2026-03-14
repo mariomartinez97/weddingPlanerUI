@@ -79,7 +79,7 @@ import { TableEditorDialogComponent } from './table-editor-dialog.component';
       </div>
     </div>
 
-    <div class="grid">
+    <div class="grid" cdkDropListGroup>
       <!-- Left: RSVP YES pool -->
       <div class="col-3 card pane">
         <div style="display:flex; align-items:center; gap:10px;">
@@ -97,7 +97,9 @@ import { TableEditorDialogComponent } from './table-editor-dialog.component';
         </div>
 
         <div
+          id="pool-dropzone"
           cdkDropList
+          [cdkDropListConnectedTo]="connectedDropzones()"
           [cdkDropListData]="unassignedYes()"
           class="dropzone"
           (cdkDropListDropped)="dropToPool($event)"
@@ -134,9 +136,11 @@ import { TableEditorDialogComponent } from './table-editor-dialog.component';
               </div>
 
               <div
+                [id]="'table-dropzone-' + t.id"
                 class="dropzone"
                 [class.full]="tableGuests(t.id).length >= t.seats"
                 cdkDropList
+                [cdkDropListConnectedTo]="connectedDropzones()"
                 [cdkDropListData]="tableGuests(t.id)"
                 (cdkDropListDropped)="dropToTable($event, t)"
               >
@@ -183,6 +187,10 @@ export class SeatingPageComponent {
 
   assignedCount = computed(() => this.assignments().length);
   totalSeats = computed(() => this.tables().reduce((s,t) => s + t.seats, 0));
+  connectedDropzones = computed(() => [
+    'pool-dropzone',
+    ...this.tables().map(t => `table-dropzone-${t.id}`),
+  ]);
 
   inviteName(partyId: string): string {
     return this.invitesStore().parties.find(p => p.id === partyId)?.inviteName ?? '—';
