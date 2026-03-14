@@ -3,11 +3,13 @@ import { NgFor, NgIf, DatePipe, CurrencyPipe } from '@angular/common';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
+import { TranslatePipe } from '../../core/pipes/translate.pipe';
 
 import { InvitesService } from '../../core/services/invites.service';
 import { CalendarService } from '../../core/services/calendar.service';
 import { BudgetService } from '../../core/services/budget.service';
 import { ChecklistService } from '../../core/services/checklist.service';
+import { I18nService } from '../../core/services/i18n.service';
 
 import { Appointment, Invitee, RSVPStatus } from '../../core/models';
 
@@ -17,13 +19,13 @@ type Seg = { d: string; color: string };
 @Component({
   selector: 'app-dashboard-page',
   standalone: true,
-  imports: [NgIf, NgFor, DatePipe, CurrencyPipe, MatCardModule, MatIconModule],
+  imports: [NgIf, NgFor, DatePipe, CurrencyPipe, MatCardModule, MatIconModule, TranslatePipe],
   template: `
   <div class="page">
     <div class="page-header">
       <div>
-        <div class="page-title">Dashboard</div>
-        <div class="page-subtitle">Quick overview of invites, calendar, checklist and budget.</div>
+        <div class="page-title">{{ 'dashboardTitle' | t }}</div>
+        <div class="page-subtitle">{{ 'dashboardSubtitle' | t }}</div>
       </div>
     </div>
 
@@ -32,9 +34,9 @@ type Seg = { d: string; color: string };
       <div class="col-6 card">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:14px;">
           <div>
-            <div style="font-weight:800; font-size:16px;">Invites & RSVP</div>
+            <div style="font-weight:800; font-size:16px;">{{ 'invitesRsvp' | t }}</div>
             <div style="opacity:.75; font-size:13px;">
-              Total: <b>{{ inviteTotal() }}</b>
+              {{ 'total' | t }}: <b>{{ inviteTotal() }}</b>
             </div>
           </div>
         </div>
@@ -68,9 +70,9 @@ type Seg = { d: string; color: string };
       <div class="col-6 card">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:14px;">
           <div>
-            <div style="font-weight:800; font-size:16px;">Budget breakdown</div>
+            <div style="font-weight:800; font-size:16px;">{{ 'budgetBreakdown' | t }}</div>
             <div style="opacity:.75; font-size:13px;">
-              Total spent:
+              {{ 'totalSpent' | t }}:
               <b>{{ totalSpent() | currency: currencyCode():'symbol':'1.0-0' }}</b>
               <span style="opacity:.75;">
                 / {{ totalBudget() | currency: currencyCode():'symbol':'1.0-0' }}
@@ -91,7 +93,7 @@ type Seg = { d: string; color: string };
                   {{ totalSpent() | currency: currencyCode():'symbol':'1.0-0' }}
                 </text>
                 <text text-anchor="middle" dy="14" style="font-size:11px; opacity:.75;">
-                  spent
+                  {{ 'spent' | t }}
                 </text>
               </g>
             </svg>
@@ -107,19 +109,19 @@ type Seg = { d: string; color: string };
         </div>
 
         <div *ngIf="budgetSlices().length===0" style="opacity:.75; padding-top:12px;">
-          Add expenses to see the breakdown.
+          {{ 'addExpensesToSeeBreakdown' | t }}
         </div>
       </div>
 
       <!-- Next appointments -->
       <div class="col-6 card">
         <div style="display:flex; align-items:center; justify-content:space-between;">
-          <div style="font-weight:800; font-size:16px;">Next 3 appointments</div>
+          <div style="font-weight:800; font-size:16px;">{{ 'nextAppointments' | t }}</div>
           <mat-icon style="opacity:.6;">event</mat-icon>
         </div>
 
         <div *ngIf="nextAppointments().length===0" style="opacity:.75; padding-top:12px;">
-          No upcoming appointments.
+          {{ 'noUpcomingAppointments' | t }}
         </div>
 
         <div *ngFor="let a of nextAppointments()" class="row">
@@ -127,10 +129,10 @@ type Seg = { d: string; color: string };
           <div style="flex:1;">
             <div style="font-weight:800;">{{ a.title }}</div>
             <div style="opacity:.75; font-size:13px;">
-              {{ a.start | date:'EEE, MMM d' }} · {{ a.start | date:'shortTime' }} – {{ a.end | date:'shortTime' }}
+              {{ appointmentDay(a.start) }} · {{ appointmentTime(a.start) }} – {{ appointmentTime(a.end) }}
               <span *ngIf="a.location"> · {{ a.location }}</span>
             </div>
-            <div style="opacity:.75; font-size:12px;">With: <b>{{ a.withWhom }}</b></div>
+            <div style="opacity:.75; font-size:12px;">{{ 'withLabel' | t }}: <b>{{ a.withWhom }}</b></div>
           </div>
         </div>
       </div>
@@ -138,12 +140,12 @@ type Seg = { d: string; color: string };
       <!-- Top todos -->
       <div class="col-6 card">
         <div style="display:flex; align-items:center; justify-content:space-between;">
-          <div style="font-weight:800; font-size:16px;">Top 5 to-do items</div>
+          <div style="font-weight:800; font-size:16px;">{{ 'topTodoItems' | t }}</div>
           <mat-icon style="opacity:.6;">checklist</mat-icon>
         </div>
 
         <div *ngIf="topTodos().length===0" style="opacity:.75; padding-top:12px;">
-          No pending tasks 🎉
+          {{ 'noPendingTasks' | t }} 🎉
         </div>
 
         <div *ngFor="let t of topTodos()" class="row">
@@ -151,8 +153,8 @@ type Seg = { d: string; color: string };
           <div style="flex:1;">
             <div style="font-weight:800;">{{ t.title }}</div>
             <div style="opacity:.75; font-size:13px;">
-              Owner: <b>{{ t.owner || '—' }}</b>
-              <span *ngIf="t.dueDate"> · Due: {{ t.dueDate | date:'MMM d' }}</span>
+              {{ 'ownerLabel' | t }}: <b>{{ t.owner || '—' }}</b>
+              <span *ngIf="t.dueDate"> · {{ 'dueLabel' | t }}: {{ shortDate(t.dueDate) }}</span>
             </div>
           </div>
         </div>
@@ -175,6 +177,7 @@ export class DashboardPageComponent {
   calendar = inject(CalendarService);
   budget = inject(BudgetService);
   checklist = inject(ChecklistService);
+  private i18n = inject(I18nService);
   private invitesStore = toSignal(this.invites.storeObs$, { initialValue: this.invites.snapshot });
   private calendarStore = toSignal(this.calendar.storeObs$, { initialValue: this.calendar.snapshot });
   private budgetStore = toSignal(this.budget.storeObs$, { initialValue: this.budget.snapshot });
@@ -231,7 +234,7 @@ export class DashboardPageComponent {
     const map = new Map<string, number>();
 
     for (const e of ex) {
-      const key = e.category || e.vendor || 'Other';
+      const key = e.category || e.vendor || this.i18n.t('other');
       map.set(key, (map.get(key) || 0) + (Number(e.amount) || 0));
     }
 
@@ -252,6 +255,28 @@ export class DashboardPageComponent {
     if (t === 'WEDDING_PLANNER') return '#3b82f6';
     if (t === 'VENUE_MANAGER') return '#0ea5e9';
     return '#94a3b8';
+  }
+
+  appointmentDay(value: string) {
+    return new Intl.DateTimeFormat(this.i18n.locale(), {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    }).format(new Date(value));
+  }
+
+  appointmentTime(value: string) {
+    return new Intl.DateTimeFormat(this.i18n.locale(), {
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(new Date(value));
+  }
+
+  shortDate(value: string) {
+    return new Intl.DateTimeFormat(this.i18n.locale(), {
+      month: 'short',
+      day: 'numeric',
+    }).format(new Date(value));
   }
 
   // ---------- SVG pie helpers ----------

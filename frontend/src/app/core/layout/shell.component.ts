@@ -7,12 +7,14 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
+import { TranslatePipe } from '../pipes/translate.pipe';
 
 import { InvitesService } from '../services/invites.service';
 import { BudgetService } from '../services/budget.service';
 import { ChecklistService } from '../services/checklist.service';
 import { CalendarService } from '../services/calendar.service';
 import { SeatingService } from '../services/seating.service';
+import { AppLanguage, I18nService } from '../services/i18n.service';
 
 import { NgIf } from '@angular/common';
 
@@ -29,6 +31,7 @@ import { NgIf } from '@angular/common';
     MatListModule,
     MatIconModule,
     MatButtonModule,
+    TranslatePipe,
   ],
   styles: [`
     .app-wrap { height: 100vh; }
@@ -77,6 +80,27 @@ import { NgIf } from '@angular/common';
     .content {
       background: transparent;
     }
+
+    .language-toggle {
+      position: fixed;
+      left: 16px;
+      bottom: 16px;
+      z-index: 30;
+      display: inline-flex;
+      gap: 4px;
+      padding: 4px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.88);
+      border: 1px solid rgba(0,0,0,0.08);
+      box-shadow: 0 14px 30px rgba(15, 23, 42, 0.14);
+      backdrop-filter: blur(10px);
+    }
+
+    .language-toggle button.active {
+      background: rgba(110,170,255,0.18);
+      border-color: rgba(59,130,246,0.18);
+      font-weight: 700;
+    }
   `],
   template: `
   <mat-sidenav-container class="app-wrap">
@@ -89,7 +113,7 @@ import { NgIf } from '@angular/common';
       <div style="padding:16px 16px 10px;">
         <div class="brand">
           <div class="brand-badge">💍</div>
-          <div>Wedding Planner</div>
+          <div>{{ 'appTitle' | t }}</div>
         </div>
       </div>
 
@@ -103,7 +127,7 @@ import { NgIf } from '@angular/common';
            [routerLinkActiveOptions]="{ exact: true }"
            (click)="closeIfMobile()">
           <mat-icon matListItemIcon>dashboard</mat-icon>
-          <span matListItemTitle>Dashboard</span>
+          <span matListItemTitle>{{ 'navDashboard' | t }}</span>
         </a>
 
         <!-- INVITES -->
@@ -113,7 +137,7 @@ import { NgIf } from '@angular/common';
            routerLinkActive="active"
            (click)="closeIfMobile()">
           <mat-icon matListItemIcon>mail</mat-icon>
-          <span matListItemTitle>Invites</span>
+          <span matListItemTitle>{{ 'navInvites' | t }}</span>
         </a>
 
         <!-- BUDGET -->
@@ -123,7 +147,7 @@ import { NgIf } from '@angular/common';
            routerLinkActive="active"
            (click)="closeIfMobile()">
           <mat-icon matListItemIcon>account_balance_wallet</mat-icon>
-          <span matListItemTitle>Budget</span>
+          <span matListItemTitle>{{ 'navBudget' | t }}</span>
         </a>
 
         <!-- CHECKLIST -->
@@ -133,7 +157,7 @@ import { NgIf } from '@angular/common';
            routerLinkActive="active"
            (click)="closeIfMobile()">
           <mat-icon matListItemIcon>checklist</mat-icon>
-          <span matListItemTitle>Checklist</span>
+          <span matListItemTitle>{{ 'navChecklist' | t }}</span>
         </a>
 
         <!-- CALENDAR -->
@@ -143,7 +167,7 @@ import { NgIf } from '@angular/common';
            routerLinkActive="active"
            (click)="closeIfMobile()">
           <mat-icon matListItemIcon>event</mat-icon>
-          <span matListItemTitle>Calendar</span>
+          <span matListItemTitle>{{ 'navCalendar' | t }}</span>
         </a>
 
         <!-- SEATING -->
@@ -153,7 +177,7 @@ import { NgIf } from '@angular/common';
            routerLinkActive="active"
            (click)="closeIfMobile()">
           <mat-icon matListItemIcon>table_restaurant</mat-icon>
-          <span matListItemTitle>Seating</span>
+          <span matListItemTitle>{{ 'navSeating' | t }}</span>
         </a>
 
       </mat-nav-list>
@@ -169,11 +193,30 @@ import { NgIf } from '@angular/common';
         <span style="flex:1 1 auto"></span>
 
         <button mat-stroked-button color="primary" (click)="seedDemo()">
-          Seed demo data
+          {{ 'seedDemoData' | t }}
         </button>
       </mat-toolbar>
 
       <router-outlet></router-outlet>
+
+      <div class="language-toggle" aria-label="Language toggle">
+        <button
+          mat-stroked-button
+          type="button"
+          [class.active]="language() === 'en'"
+          (click)="setLanguage('en')"
+        >
+          {{ 'languageShortEnglish' | t }}
+        </button>
+        <button
+          mat-stroked-button
+          type="button"
+          [class.active]="language() === 'es'"
+          (click)="setLanguage('es')"
+        >
+          {{ 'languageShortSpanish' | t }}
+        </button>
+      </div>
     </mat-sidenav-content>
 
   </mat-sidenav-container>
@@ -188,11 +231,13 @@ export class ShellComponent {
   private checklist = inject(ChecklistService);
   private calendar = inject(CalendarService);
   private seating = inject(SeatingService);
+  private i18n = inject(I18nService);
 
   private bp = inject(BreakpointObserver);
   private demoSeeded = signal(false);
 
   isHandset = signal(false);
+  language = this.i18n.language;
 
   constructor() {
     this.bp.observe([Breakpoints.Handset])
@@ -205,6 +250,10 @@ export class ShellComponent {
     }
   }
 
+  setLanguage(language: AppLanguage) {
+    this.i18n.setLanguage(language);
+  }
+
   async seedDemo() {
     if (this.demoSeeded()) return;
   
@@ -215,7 +264,7 @@ export class ShellComponent {
     this.seating.seedDemo();
   
     this.demoSeeded.set(true);
-    alert('Demo data added ✅');
+    alert(`${this.i18n.t('demoDataAdded')} ✅`);
   }
   
 }

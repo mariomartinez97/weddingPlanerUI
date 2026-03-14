@@ -7,11 +7,13 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { TranslatePipe } from '../../core/pipes/translate.pipe';
 
 import { InvitesService } from '../../core/services/invites.service';
 import { SeatingService } from '../../core/services/seating.service';
 import { TableDef, Invitee } from '../../core/models';
 import { TableEditorDialogComponent } from './table-editor-dialog.component';
+import { I18nService } from '../../core/services/i18n.service';
 
 @Component({
   selector: 'app-seating-page',
@@ -20,7 +22,7 @@ import { TableEditorDialogComponent } from './table-editor-dialog.component';
     NgIf, NgFor,
     FormsModule,
     DragDropModule,
-    MatButtonModule, MatIconModule, MatInputModule, MatDialogModule
+    MatButtonModule, MatIconModule, MatInputModule, MatDialogModule, TranslatePipe
   ],
   styles: [`
     .pane { min-height: 520px; }
@@ -58,23 +60,23 @@ import { TableEditorDialogComponent } from './table-editor-dialog.component';
   <div class="page">
     <div class="page-header">
       <div>
-        <div class="page-title">Seating chart</div>
-        <div class="page-subtitle">Define tables, drag RSVP YES guests to seats, export table list.</div>
+        <div class="page-title">{{ 'seatingTitle' | t }}</div>
+        <div class="page-subtitle">{{ 'seatingSubtitle' | t }}</div>
       </div>
       <div style="display:flex; gap:10px; flex-wrap:wrap;">
         <button mat-stroked-button (click)="openTables()">
           <mat-icon>table_restaurant</mat-icon>
-          Define tables
+          {{ 'defineTables' | t }}
         </button>
 
         <button mat-stroked-button (click)="clearAssignments()">
           <mat-icon>restart_alt</mat-icon>
-          Clear seating
+          {{ 'clearSeating' | t }}
         </button>
 
         <button mat-flat-button color="primary" (click)="exportCsv()">
           <mat-icon>download</mat-icon>
-          Export list
+          {{ 'exportList' | t }}
         </button>
       </div>
     </div>
@@ -83,17 +85,17 @@ import { TableEditorDialogComponent } from './table-editor-dialog.component';
       <!-- Left: RSVP YES pool -->
       <div class="col-3 card pane">
         <div style="display:flex; align-items:center; gap:10px;">
-          <div style="font-weight:800">RSVP Yes</div>
+          <div style="font-weight:800">RSVP {{ 'rsvpYes' | t }}</div>
           <span class="small">({{yesPool().length}})</span>
         </div>
 
         <mat-form-field appearance="fill" style="margin-top:10px;">
-          <mat-label>Search guests</mat-label>
-          <input matInput [ngModel]="q()" (ngModelChange)="q.set($event)" placeholder="Companion or invite name">
+          <mat-label>{{ 'searchGuests' | t }}</mat-label>
+          <input matInput [ngModel]="q()" (ngModelChange)="q.set($event)" [placeholder]="'searchGuestsPlaceholder' | t">
         </mat-form-field>
 
         <div class="small" style="margin-top:8px;">
-          Drag guests into a table. Capacity is enforced.
+          {{ 'dragGuestsHint' | t }}
         </div>
 
         <div
@@ -110,7 +112,7 @@ import { TableEditorDialogComponent } from './table-editor-dialog.component';
           </div>
 
           <div *ngIf="unassignedYesFiltered().length===0" class="small" style="padding:8px; opacity:.8;">
-            No unassigned RSVP YES guests match your search.
+            {{ 'noMatchingGuests' | t }}
           </div>
         </div>
       </div>
@@ -119,12 +121,12 @@ import { TableEditorDialogComponent } from './table-editor-dialog.component';
       <div class="col-9 card pane">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
           <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
-            <div style="font-weight:800">Tables</div>
+            <div style="font-weight:800">{{ 'tables' | t }}</div>
             <div class="small">
-              Total seats: <b>{{totalSeats()}}</b> · Assigned: <b>{{assignedCount()}}</b>
+              {{ 'totalSeats' | t }}: <b>{{totalSeats()}}</b> · {{ 'assigned' | t }}: <b>{{assignedCount()}}</b>
             </div>
           </div>
-          <div class="small" *ngIf="tables().length===0">No tables defined yet.</div>
+          <div class="small" *ngIf="tables().length===0">{{ 'noTablesDefinedYet' | t }}</div>
         </div>
 
         <div class="grid" style="margin-top:12px;">
@@ -150,14 +152,14 @@ import { TableEditorDialogComponent } from './table-editor-dialog.component';
                 </div>
 
                 <div *ngIf="tableGuests(t.id).length===0" class="small" style="padding:6px; opacity:.8;">
-                  Drop guests here
+                  {{ 'dropGuestsHere' | t }}
                 </div>
               </div>
 
               <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:10px;">
                 <button mat-stroked-button (click)="clearTable(t)">
                   <mat-icon>clear</mat-icon>
-                  Clear table
+                  {{ 'clearTable' | t }}
                 </button>
               </div>
             </div>
@@ -165,7 +167,7 @@ import { TableEditorDialogComponent } from './table-editor-dialog.component';
         </div>
 
         <div class="small" style="margin-top:12px; opacity:.75;">
-          Tip: you can drag guests back to the RSVP pool to unassign them.
+          {{ 'dragBackTip' | t }}
         </div>
       </div>
     </div>
@@ -175,6 +177,7 @@ import { TableEditorDialogComponent } from './table-editor-dialog.component';
 export class SeatingPageComponent {
   private invites = inject(InvitesService);
   private seating = inject(SeatingService);
+  private i18n = inject(I18nService);
   private dialog = inject(MatDialog);
   private invitesStore = toSignal(this.invites.storeObs$, { initialValue: this.invites.snapshot });
   private seatingStore = toSignal(this.seating.storeObs$, { initialValue: this.seating.snapshot });
@@ -243,7 +246,7 @@ export class SeatingPageComponent {
   }
 
   clearAssignments() {
-    if (!confirm('Clear all seating assignments?')) return;
+    if (!confirm(this.i18n.t('clearAllSeatingConfirm'))) return;
     this.seating.clearAssignments();
   }
 

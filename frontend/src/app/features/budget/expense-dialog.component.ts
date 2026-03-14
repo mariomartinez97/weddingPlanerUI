@@ -5,66 +5,69 @@ import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/materia
 import { MatButtonModule } from '@angular/material/button';
 import { MatInputModule } from '@angular/material/input';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { TranslatePipe } from '../../core/pipes/translate.pipe';
 
 import { BudgetService } from '../../core/services/budget.service';
 import { Expense } from '../../core/models';
+import { I18nService } from '../../core/services/i18n.service';
 
 type DialogData = { existing?: Expense };
 
 @Component({
   selector: 'app-expense-dialog',
   standalone: true,
-  imports: [NgIf, ReactiveFormsModule, MatDialogModule, MatButtonModule, MatInputModule, MatSlideToggleModule],
+  imports: [NgIf, ReactiveFormsModule, MatDialogModule, MatButtonModule, MatInputModule, MatSlideToggleModule, TranslatePipe],
   template: `
-  <h2 mat-dialog-title>{{data.existing ? 'Edit expense' : 'Add expense'}}</h2>
+  <h2 mat-dialog-title>{{data.existing ? ('editExpense' | t) : ('addExpenseTitle' | t)}}</h2>
   <div mat-dialog-content>
     <form [formGroup]="form" class="grid">
       <div class="col-6">
         <mat-form-field appearance="fill">
-          <mat-label>Category</mat-label>
-          <input matInput formControlName="category" placeholder="Venue, Catering, Photo...">
+          <mat-label>{{ 'category' | t }}</mat-label>
+          <input matInput formControlName="category" [placeholder]="'categoryPlaceholder' | t">
         </mat-form-field>
       </div>
       <div class="col-6">
         <mat-form-field appearance="fill">
-          <mat-label>Vendor</mat-label>
-          <input matInput formControlName="vendor" placeholder="Optional">
+          <mat-label>{{ 'vendor' | t }}</mat-label>
+          <input matInput formControlName="vendor" [placeholder]="'vendorPlaceholder' | t">
         </mat-form-field>
       </div>
       <div class="col-6">
         <mat-form-field appearance="fill">
-          <mat-label>Amount</mat-label>
+          <mat-label>{{ 'amount' | t }}</mat-label>
           <input matInput type="number" formControlName="amount" min="0">
         </mat-form-field>
       </div>
       <div class="col-6">
         <mat-form-field appearance="fill">
-          <mat-label>Date</mat-label>
+          <mat-label>{{ 'date' | t }}</mat-label>
           <input matInput formControlName="date" placeholder="YYYY-MM-DD">
         </mat-form-field>
       </div>
       <div class="col-12" style="display:flex; align-items:center; gap:10px; padding-top:6px;">
-        <mat-slide-toggle formControlName="paid">Paid</mat-slide-toggle>
-        <span style="opacity:.8; font-size:12px;">Mark if already paid.</span>
+        <mat-slide-toggle formControlName="paid">{{ 'paid' | t }}</mat-slide-toggle>
+        <span style="opacity:.8; font-size:12px;">{{ 'markIfAlreadyPaid' | t }}</span>
       </div>
       <div class="col-12">
         <mat-form-field appearance="fill">
-          <mat-label>Notes</mat-label>
+          <mat-label>{{ 'notes' | t }}</mat-label>
           <textarea matInput rows="3" formControlName="notes"></textarea>
         </mat-form-field>
       </div>
     </form>
   </div>
   <div mat-dialog-actions align="end">
-    <button mat-button (click)="ref.close()">Cancel</button>
+    <button mat-button (click)="ref.close()">{{ 'cancel' | t }}</button>
     <button mat-flat-button color="primary" [disabled]="form.invalid" (click)="save()">
-      {{data.existing ? 'Save' : 'Add'}}
+      {{data.existing ? i18n.t('save') : i18n.t('add')}}
     </button>
   </div>
   `
 })
 export class ExpenseDialogComponent {
   private svc = inject(BudgetService);
+  readonly i18n = inject(I18nService);
   ref = inject(MatDialogRef<ExpenseDialogComponent>);
 
   form = new FormGroup({

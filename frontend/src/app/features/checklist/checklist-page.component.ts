@@ -7,10 +7,12 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatMenuModule } from '@angular/material/menu';
+import { TranslatePipe } from '../../core/pipes/translate.pipe';
 
 import { ChecklistService } from '../../core/services/checklist.service';
 import { ChecklistItem } from '../../core/models';
 import { ChecklistItemDialogComponent } from './checklist-item-dialog.component';
+import { I18nService } from '../../core/services/i18n.service';
 
 @Component({
   selector: 'app-checklist-page',
@@ -18,32 +20,32 @@ import { ChecklistItemDialogComponent } from './checklist-item-dialog.component'
   imports: [
     NgIf, NgFor,
     MatButtonModule, MatIconModule, MatDialogModule,
-    MatChipsModule, MatCheckboxModule, MatMenuModule
+    MatChipsModule, MatCheckboxModule, MatMenuModule, TranslatePipe
   ],
   template: `
   <div class="page">
     <div class="page-header">
       <div>
-        <div class="page-title">Checklist</div>
-        <div style="opacity:.8; font-size:13px;">Track tasks and who’s responsible.</div>
+        <div class="page-title">{{ 'checklistTitle' | t }}</div>
+        <div style="opacity:.8; font-size:13px;">{{ 'checklistSubtitle' | t }}</div>
       </div>
       <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <button mat-flat-button color="primary" (click)="open()"><mat-icon>add</mat-icon> Add item</button>
+        <button mat-flat-button color="primary" (click)="open()"><mat-icon>add</mat-icon> {{ 'addItem' | t }}</button>
       </div>
     </div>
 
     <div class="grid">
       <div class="col-12 card">
         <mat-chip-listbox [value]="filter()" (change)="filter.set($event.value)">
-          <mat-chip-option value="ALL">All ({{counts().all}})</mat-chip-option>
-          <mat-chip-option value="PENDING">Pending ({{counts().pending}})</mat-chip-option>
-          <mat-chip-option value="DONE">Done ({{counts().done}})</mat-chip-option>
+          <mat-chip-option value="ALL">{{ 'all' | t }} ({{counts().all}})</mat-chip-option>
+          <mat-chip-option value="PENDING">{{ 'rsvpPending' | t }} ({{counts().pending}})</mat-chip-option>
+          <mat-chip-option value="DONE">{{ 'done' | t }} ({{counts().done}})</mat-chip-option>
         </mat-chip-listbox>
       </div>
 
       <div class="col-12 card">
         <div *ngIf="rows().length===0" style="opacity:.8; padding:8px;">
-          No checklist items yet.
+          {{ 'noChecklistItemsYet' | t }}
         </div>
 
         <div *ngFor="let it of rows()" style="display:flex; gap:10px; align-items:flex-start; padding:10px; border-bottom: 1px solid rgba(255,255,255,0.10);">
@@ -52,16 +54,16 @@ import { ChecklistItemDialogComponent } from './checklist-item-dialog.component'
           <div style="flex:1 1 auto;">
             <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
               <div style="font-weight:700" [style.textDecoration]="it.done ? 'line-through' : 'none'">{{it.title}}</div>
-              <span style="opacity:.7; font-size:12px;">Owner: <b>{{it.owner}}</b></span>
-              <span style="opacity:.7; font-size:12px;" *ngIf="it.dueDate">Due: <b>{{it.dueDate}}</b></span>
+              <span style="opacity:.7; font-size:12px;">{{ 'ownerLabel' | t }}: <b>{{it.owner}}</b></span>
+              <span style="opacity:.7; font-size:12px;" *ngIf="it.dueDate">{{ 'dueLabel' | t }}: <b>{{it.dueDate}}</b></span>
             </div>
             <div style="opacity:.8; font-size:13px; margin-top:6px;" *ngIf="it.notes">{{it.notes}}</div>
           </div>
 
           <button mat-icon-button [matMenuTriggerFor]="menu"><mat-icon>more_vert</mat-icon></button>
           <mat-menu #menu="matMenu">
-            <button mat-menu-item (click)="open(it)"><mat-icon>edit</mat-icon> Edit</button>
-            <button mat-menu-item (click)="del(it)"><mat-icon>delete</mat-icon> Delete</button>
+            <button mat-menu-item (click)="open(it)"><mat-icon>edit</mat-icon> {{ 'edit' | t }}</button>
+            <button mat-menu-item (click)="del(it)"><mat-icon>delete</mat-icon> {{ 'delete' | t }}</button>
           </mat-menu>
         </div>
       </div>
@@ -71,6 +73,7 @@ import { ChecklistItemDialogComponent } from './checklist-item-dialog.component'
 })
 export class ChecklistPageComponent {
   readonly svc = inject(ChecklistService);
+  private i18n = inject(I18nService);
   private dialog = inject(MatDialog);
   private store = toSignal(this.svc.storeObs$, { initialValue: this.svc.snapshot });
 
@@ -98,7 +101,7 @@ export class ChecklistPageComponent {
   }
 
   del(it: ChecklistItem) {
-    if (!confirm('Delete this item?')) return;
+    if (!confirm(this.i18n.t('deleteChecklistItemConfirm'))) return;
     this.svc.deleteItem(it.id);
   }
 }

@@ -4,59 +4,62 @@ import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/materia
 import { MatButtonModule } from '@angular/material/button';
 import { MatInputModule } from '@angular/material/input';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { TranslatePipe } from '../../core/pipes/translate.pipe';
 
 import { ChecklistService } from '../../core/services/checklist.service';
 import { ChecklistItem } from '../../core/models';
+import { I18nService } from '../../core/services/i18n.service';
 
 type DialogData = { existing?: ChecklistItem };
 
 @Component({
   selector: 'app-checklist-item-dialog',
   standalone: true,
-  imports: [ReactiveFormsModule, MatDialogModule, MatButtonModule, MatInputModule, MatCheckboxModule],
+  imports: [ReactiveFormsModule, MatDialogModule, MatButtonModule, MatInputModule, MatCheckboxModule, TranslatePipe],
   template: `
-  <h2 mat-dialog-title>{{data.existing ? 'Edit item' : 'Add checklist item'}}</h2>
+  <h2 mat-dialog-title>{{data.existing ? ('editItem' | t) : ('addChecklistItem' | t)}}</h2>
   <div mat-dialog-content>
     <form [formGroup]="form" class="grid">
       <div class="col-12">
         <mat-form-field appearance="fill">
-          <mat-label>Title</mat-label>
+          <mat-label>{{ 'title' | t }}</mat-label>
           <input matInput formControlName="title">
         </mat-form-field>
       </div>
       <div class="col-6">
         <mat-form-field appearance="fill">
-          <mat-label>Owner</mat-label>
-          <input matInput formControlName="owner" placeholder="Who is responsible?">
+          <mat-label>{{ 'owner' | t }}</mat-label>
+          <input matInput formControlName="owner" [placeholder]="'ownerPlaceholder' | t">
         </mat-form-field>
       </div>
       <div class="col-6">
         <mat-form-field appearance="fill">
-          <mat-label>Due date</mat-label>
-          <input matInput formControlName="dueDate" placeholder="YYYY-MM-DD (optional)">
+          <mat-label>{{ 'dueDate' | t }}</mat-label>
+          <input matInput formControlName="dueDate" [placeholder]="'dueDatePlaceholder' | t">
         </mat-form-field>
       </div>
       <div class="col-12">
         <mat-form-field appearance="fill">
-          <mat-label>Notes</mat-label>
+          <mat-label>{{ 'notes' | t }}</mat-label>
           <textarea matInput rows="3" formControlName="notes"></textarea>
         </mat-form-field>
       </div>
       <div class="col-12">
-        <mat-checkbox formControlName="done">Done</mat-checkbox>
+        <mat-checkbox formControlName="done">{{ 'done' | t }}</mat-checkbox>
       </div>
     </form>
   </div>
   <div mat-dialog-actions align="end">
-    <button mat-button (click)="ref.close()">Cancel</button>
+    <button mat-button (click)="ref.close()">{{ 'cancel' | t }}</button>
     <button mat-flat-button color="primary" [disabled]="form.invalid" (click)="save()">
-      {{data.existing ? 'Save' : 'Add'}}
+      {{data.existing ? i18n.t('save') : i18n.t('add')}}
     </button>
   </div>
   `
 })
 export class ChecklistItemDialogComponent {
   private svc = inject(ChecklistService);
+  readonly i18n = inject(I18nService);
   ref = inject(MatDialogRef<ChecklistItemDialogComponent>);
 
   form = new FormGroup({

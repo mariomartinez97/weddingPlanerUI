@@ -4,9 +4,11 @@ import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTableModule } from '@angular/material/table';
 import * as XLSX from 'xlsx';
+import { TranslatePipe } from '../../core/pipes/translate.pipe';
 
 import { InvitesService } from '../../core/services/invites.service';
 import { RSVPStatus } from '../../core/models';
+import { I18nService } from '../../core/services/i18n.service';
 
 type NewFormatRow = {
   InviteName: string;          // Party.inviteName
@@ -41,15 +43,15 @@ type PreviewRow = {
 @Component({
   selector: 'app-excel-import-dialog',
   standalone: true,
-  imports: [NgIf, NgFor, MatDialogModule, MatButtonModule, MatTableModule],
+  imports: [NgIf, NgFor, MatDialogModule, MatButtonModule, MatTableModule, TranslatePipe],
   template: `
-  <h2 mat-dialog-title>Import invites from Excel</h2>
+  <h2 mat-dialog-title>{{ 'importInvitesFromExcel' | t }}</h2>
 
   <div mat-dialog-content>
     <p style="opacity:.85; margin-top:0; line-height:1.5;">
-      Supported formats:
-      <br><b>New format (recommended):</b> InviteName, CompanionName, ContactEmail, ContactPhone, RSVP, MealChoice, Notes, InviteNotes
-      <br><b>Old format (legacy):</b> Party, FirstName, LastName, Email, Phone, RSVP, MealChoice, Notes
+      {{ 'supportedFormats' | t }}:
+      <br><b>{{ 'newFormatRecommended' | t }}:</b> InviteName, CompanionName, ContactEmail, ContactPhone, RSVP, MealChoice, Notes, InviteNotes
+      <br><b>{{ 'oldFormatLegacy' | t }}:</b> Party, FirstName, LastName, Email, Phone, RSVP, MealChoice, Notes
     </p>
 
     <input type="file" accept=".xlsx,.xls" (change)="onFile($event)" />
@@ -59,17 +61,17 @@ type PreviewRow = {
     <div *ngIf="preview.length" style="margin-top:14px; overflow:auto; max-height:360px;">
       <table mat-table [dataSource]="preview" class="mat-elevation-z0" style="min-width:760px;">
         <ng-container matColumnDef="InviteName">
-          <th mat-header-cell *matHeaderCellDef>Invite</th>
+          <th mat-header-cell *matHeaderCellDef>{{ 'invite' | t }}</th>
           <td mat-cell *matCellDef="let r">{{r.InviteName}}</td>
         </ng-container>
 
         <ng-container matColumnDef="CompanionName">
-          <th mat-header-cell *matHeaderCellDef>Companion</th>
+          <th mat-header-cell *matHeaderCellDef>{{ 'companion' | t }}</th>
           <td mat-cell *matCellDef="let r">{{r.CompanionName}}</td>
         </ng-container>
 
         <ng-container matColumnDef="ContactEmail">
-          <th mat-header-cell *matHeaderCellDef>Email</th>
+          <th mat-header-cell *matHeaderCellDef>{{ 'email' | t }}</th>
           <td mat-cell *matCellDef="let r">{{r.ContactEmail || '—'}}</td>
         </ng-container>
 
@@ -79,7 +81,7 @@ type PreviewRow = {
         </ng-container>
 
         <ng-container matColumnDef="MealChoice">
-          <th mat-header-cell *matHeaderCellDef>Meal</th>
+          <th mat-header-cell *matHeaderCellDef>{{ 'meal' | t }}</th>
           <td mat-cell *matCellDef="let r">{{r.MealChoice || '—'}}</td>
         </ng-container>
 
@@ -89,20 +91,21 @@ type PreviewRow = {
     </div>
 
     <div *ngIf="preview.length" style="opacity:.75; font-size:13px; margin-top:10px;">
-      Rows: {{preview.length}} (each row = one companion/person)
+      {{ 'rowsLabel' | t }}: {{preview.length}} ({{ 'eachRowOnePerson' | t }})
     </div>
   </div>
 
   <div mat-dialog-actions align="end">
-    <button mat-button (click)="ref.close()">Cancel</button>
+    <button mat-button (click)="ref.close()">{{ 'cancel' | t }}</button>
     <button mat-flat-button color="primary" [disabled]="!parsed.length" (click)="import()">
-      Import {{parsed.length}}
+      {{ 'importAction' | t }} {{parsed.length}}
     </button>
   </div>
   `
 })
 export class ExcelImportDialogComponent {
   private svc = inject(InvitesService);
+  private i18n = inject(I18nService);
   ref = inject(MatDialogRef<ExcelImportDialogComponent>);
 
   cols = ['InviteName','CompanionName','ContactEmail','RSVP','MealChoice'];
@@ -131,7 +134,7 @@ export class ExcelImportDialogComponent {
         .sheet_to_json<any>(sheet, { defval: '' })
         .map(r => this.normalizeRowKeys(r));
       if (!rawRows.length) {
-        this.error = 'Empty sheet.';
+        this.error = this.i18n.t('emptySheet');
         return;
       }
 
@@ -142,10 +145,7 @@ export class ExcelImportDialogComponent {
       const isOld = keys.includes('party') && keys.includes('firstname') && keys.includes('lastname');
 
       if (!isNew && !isOld) {
-        this.error =
-          'Unrecognized columns. Use either: ' +
-          'InviteName, CompanionName, ContactEmail, ContactPhone, RSVP, MealChoice, Notes, InviteNotes ' +
-          'OR Party, FirstName, LastName, Email, Phone, RSVP, MealChoice, Notes.';
+        this.error = this.i18n.t('unrecognizedColumns');
         return;
       }
 
@@ -155,7 +155,7 @@ export class ExcelImportDialogComponent {
       ).filter(r => r.InviteName);
 
       if (!cleaned.length) {
-        this.error = 'No valid rows found. Make sure InviteName is filled (or Party + FirstName + LastName for old format).';
+        this.error = this.i18n.t('noValidRowsFound');
         return;
       }
 
@@ -170,10 +170,10 @@ export class ExcelImportDialogComponent {
       }));
 
       if (cleaned.length > 250) {
-        this.error = `Preview shows first 250 rows; all ${cleaned.length} rows will be imported.`;
+        this.error = `${this.i18n.t('previewFirstRows')} (${cleaned.length})`;
       }
     } catch {
-      this.error = 'Could not read the file. Please ensure it is a valid Excel .xlsx.';
+      this.error = this.i18n.t('couldNotReadFile');
     }
   }
 
