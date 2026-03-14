@@ -1,5 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { NgIf, NgFor, DatePipe } from '@angular/common';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -95,11 +96,12 @@ function toISODate(d: Date): string {
 export class CalendarPageComponent {
   readonly svc = inject(CalendarService);
   private dialog = inject(MatDialog);
+  private store = toSignal(this.svc.storeObs$, { initialValue: this.svc.snapshot });
 
   typeFilter = signal<'ALL'|'WEDDING_PLANNER'|'VENUE_MANAGER'|'PROVIDER'>('ALL');
 
   filteredRows = computed(() => {
-    const all = this.svc.snapshot.appointments;
+    const all = this.store().appointments;
 
     return [...all].sort((a,b) => a.start.localeCompare(b.start));
   });

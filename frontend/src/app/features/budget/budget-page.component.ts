@@ -1,5 +1,6 @@
 import { Component, computed, inject } from '@angular/core';
 import { NgIf, NgFor, CurrencyPipe } from '@angular/common';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -89,12 +90,13 @@ import { Expense } from '../../core/models';
 export class BudgetPageComponent {
   private svc = inject(BudgetService);
   private dialog = inject(MatDialog);
+  private store = toSignal(this.svc.storeObs$, { initialValue: this.svc.snapshot });
 
   cols = ['category','vendor','amount','date','paid','actions'];
 
-  currency = computed(() => this.svc.snapshot.state.currency);
-  total = computed(() => this.svc.snapshot.state.totalBudget);
-  expenses = computed(() => this.svc.snapshot.expenses);
+  currency = computed(() => this.store().state.currency);
+  total = computed(() => this.store().state.totalBudget);
+  expenses = computed(() => this.store().expenses);
 
   spent = computed(() => this.expenses().reduce((s, e) => s + (e.amount || 0), 0));
   paidTotal = computed(() => this.expenses().filter(e => e.paid).reduce((s, e) => s + e.amount, 0));

@@ -1,5 +1,6 @@
 import { Component, computed, inject } from '@angular/core';
 import { NgFor, NgIf, DatePipe, CurrencyPipe } from '@angular/common';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 
@@ -174,10 +175,14 @@ export class DashboardPageComponent {
   calendar = inject(CalendarService);
   budget = inject(BudgetService);
   checklist = inject(ChecklistService);
+  private invitesStore = toSignal(this.invites.storeObs$, { initialValue: this.invites.snapshot });
+  private calendarStore = toSignal(this.calendar.storeObs$, { initialValue: this.calendar.snapshot });
+  private budgetStore = toSignal(this.budget.storeObs$, { initialValue: this.budget.snapshot });
+  private checklistStore = toSignal(this.checklist.storeObs$, { initialValue: this.checklist.snapshot });
 
   // ---------- Invites pie ----------
   inviteSlices = computed((): Slice[] => {
-    const all: Invitee[] = this.invites.snapshot.invitees ?? [];
+    const all: Invitee[] = this.invitesStore().invitees ?? [];
     const counts: Record<RSVPStatus, number> = { YES: 0, NO: 0, MAYBE: 0, PENDING: 0 };
 
     for (const i of all) counts[i.rsvp]++;
@@ -195,7 +200,7 @@ export class DashboardPageComponent {
 
   // ---------- Calendar widget ----------
   nextAppointments = computed((): Appointment[] => {
-    const all = this.calendar.snapshot.appointments ?? [];
+    const all = this.calendarStore().appointments ?? [];
     const now = new Date().toISOString();
     return [...all]
       .filter(a => a.start >= now)
@@ -205,7 +210,7 @@ export class DashboardPageComponent {
 
   // ---------- Checklist widget ----------
   topTodos = computed(() => {
-    const all = this.checklist.snapshot.items ?? [];
+    const all = this.checklistStore().items ?? [];
     return [...all]
       .filter(t => !t.done)
       .sort((a, b) => (a.dueDate || '9999-12-31').localeCompare(b.dueDate || '9999-12-31'))
@@ -213,16 +218,16 @@ export class DashboardPageComponent {
   });
 
   // ---------- Budget pie ----------
-  currencyCode = computed(() => this.budget.snapshot.state.currency ?? 'CAD');
-  totalBudget = computed(() => this.budget.snapshot.state.totalBudget ?? 0);
+  currencyCode = computed(() => this.budgetStore().state.currency ?? 'CAD');
+  totalBudget = computed(() => this.budgetStore().state.totalBudget ?? 0);
 
   totalSpent = computed(() => {
-    const ex = this.budget.snapshot.expenses ?? [];
+    const ex = this.budgetStore().expenses ?? [];
     return ex.reduce((s, e) => s + (Number(e.amount) || 0), 0);
   });
 
   budgetSlices = computed((): Slice[] => {
-    const ex = this.budget.snapshot.expenses ?? [];
+    const ex = this.budgetStore().expenses ?? [];
     const map = new Map<string, number>();
 
     for (const e of ex) {

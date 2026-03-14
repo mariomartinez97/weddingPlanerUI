@@ -1,5 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { NgIf, NgFor } from '@angular/common';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -71,11 +72,12 @@ import { ChecklistItemDialogComponent } from './checklist-item-dialog.component'
 export class ChecklistPageComponent {
   readonly svc = inject(ChecklistService);
   private dialog = inject(MatDialog);
+  private store = toSignal(this.svc.storeObs$, { initialValue: this.svc.snapshot });
 
   filter = signal<'ALL'|'PENDING'|'DONE'>('ALL');
 
   counts = computed(() => {
-    const items = this.svc.snapshot.items;
+    const items = this.store().items;
     return {
       all: items.length,
       pending: items.filter(x => !x.done).length,
@@ -85,7 +87,7 @@ export class ChecklistPageComponent {
 
   rows = computed(() => {
     const f = this.filter();
-    const items = this.svc.snapshot.items;
+    const items = this.store().items;
     if (f === 'ALL') return items;
     if (f === 'DONE') return items.filter(x => x.done);
     return items.filter(x => !x.done);

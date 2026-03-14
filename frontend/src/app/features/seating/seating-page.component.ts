@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { NgIf, NgFor } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -171,18 +172,20 @@ export class SeatingPageComponent {
   private invites = inject(InvitesService);
   private seating = inject(SeatingService);
   private dialog = inject(MatDialog);
+  private invitesStore = toSignal(this.invites.storeObs$, { initialValue: this.invites.snapshot });
+  private seatingStore = toSignal(this.seating.storeObs$, { initialValue: this.seating.snapshot });
 
   q = signal('');
 
-  yesPool = computed(() => this.invites.snapshot.invitees.filter(i => i.rsvp === 'YES'));
-  tables = computed(() => this.seating.snapshot.tables);
-  assignments = computed(() => this.seating.snapshot.assignments);
+  yesPool = computed(() => this.invitesStore().invitees.filter(i => i.rsvp === 'YES'));
+  tables = computed(() => this.seatingStore().tables);
+  assignments = computed(() => this.seatingStore().assignments);
 
   assignedCount = computed(() => this.assignments().length);
   totalSeats = computed(() => this.tables().reduce((s,t) => s + t.seats, 0));
 
   inviteName(partyId: string): string {
-    return this.invites.snapshot.parties.find(p => p.id === partyId)?.inviteName ?? '—';
+    return this.invitesStore().parties.find(p => p.id === partyId)?.inviteName ?? '—';
   }
 
   isAssigned(inviteeId: string): boolean {
@@ -203,7 +206,7 @@ export class SeatingPageComponent {
   });
 
   tableGuests(tableId: string): Invitee[] {
-    const map = new Map(this.invites.snapshot.invitees.map(i => [i.id, i]));
+    const map = new Map(this.invitesStore().invitees.map(i => [i.id, i]));
     return this.assignments()
       .filter(a => a.tableId === tableId)
       .map(a => map.get(a.inviteeId))
@@ -242,8 +245,8 @@ export class SeatingPageComponent {
   }
 
   exportCsv() {
-    const invMap = new Map(this.invites.snapshot.invitees.map(i => [i.id, i]));
-    const partyMap = new Map(this.invites.snapshot.parties.map(p => [p.id, p]));
+    const invMap = new Map(this.invitesStore().invitees.map(i => [i.id, i]));
+    const partyMap = new Map(this.invitesStore().parties.map(p => [p.id, p]));
     const tableMap = new Map(this.tables().map(t => [t.id, t.name]));
 
     // New format export

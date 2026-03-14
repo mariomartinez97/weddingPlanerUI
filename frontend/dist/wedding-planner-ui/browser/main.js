@@ -62107,6 +62107,49 @@ var ShellComponent = class _ShellComponent {
   (typeof ngDevMode === "undefined" || ngDevMode) && \u0275setClassDebugInfo(ShellComponent, { className: "ShellComponent" });
 })();
 
+// node_modules/@angular/core/fesm2022/rxjs-interop.mjs
+function toSignal(source, options) {
+  ngDevMode && assertNotInReactiveContext(toSignal, "Invoking `toSignal` causes new subscriptions every time. Consider moving `toSignal` outside of the reactive context and read the signal value where needed.");
+  const requiresCleanup = !options?.manualCleanup;
+  requiresCleanup && !options?.injector && assertInInjectionContext(toSignal);
+  const cleanupRef = requiresCleanup ? options?.injector?.get(DestroyRef) ?? inject(DestroyRef) : null;
+  let state2;
+  if (options?.requireSync) {
+    state2 = signal({
+      kind: 0
+      /* StateKind.NoValue */
+    });
+  } else {
+    state2 = signal({ kind: 1, value: options?.initialValue });
+  }
+  const sub = source.subscribe({
+    next: (value) => state2.set({ kind: 1, value }),
+    error: (error) => {
+      if (options?.rejectErrors) {
+        throw error;
+      }
+      state2.set({ kind: 2, error });
+    }
+    // Completion of the Observable is meaningless to the signal. Signals don't have a concept of
+    // "complete".
+  });
+  if (ngDevMode && options?.requireSync && state2().kind === 0) {
+    throw new RuntimeError(601, "`toSignal()` called with `requireSync` but `Observable` did not emit synchronously.");
+  }
+  cleanupRef?.onDestroy(sub.unsubscribe.bind(sub));
+  return computed(() => {
+    const current = state2();
+    switch (current.kind) {
+      case 1:
+        return current.value;
+      case 2:
+        throw current.error;
+      case 0:
+        throw new RuntimeError(601, "`toSignal()` called with `requireSync` but `Observable` did not emit synchronously.");
+    }
+  });
+}
+
 // node_modules/@angular/material/fesm2022/card.mjs
 var _c09 = ["*"];
 var _c18 = [[["mat-card-title"], ["mat-card-subtitle"], ["", "mat-card-title", ""], ["", "mat-card-subtitle", ""], ["", "matCardTitle", ""], ["", "matCardSubtitle", ""]], [["", "mat-card-image", ""], ["", "matCardImage", ""], ["", "mat-card-sm-image", ""], ["", "matCardImageSmall", ""], ["", "mat-card-md-image", ""], ["", "matCardImageMedium", ""], ["", "mat-card-lg-image", ""], ["", "matCardImageLarge", ""], ["", "mat-card-xl-image", ""], ["", "matCardImageXLarge", ""]], "*"];
@@ -62805,9 +62848,13 @@ var DashboardPageComponent = class _DashboardPageComponent {
   calendar = inject(CalendarService);
   budget = inject(BudgetService);
   checklist = inject(ChecklistService);
+  invitesStore = toSignal(this.invites.storeObs$, { initialValue: this.invites.snapshot });
+  calendarStore = toSignal(this.calendar.storeObs$, { initialValue: this.calendar.snapshot });
+  budgetStore = toSignal(this.budget.storeObs$, { initialValue: this.budget.snapshot });
+  checklistStore = toSignal(this.checklist.storeObs$, { initialValue: this.checklist.snapshot });
   // ---------- Invites pie ----------
   inviteSlices = computed(() => {
-    const all = this.invites.snapshot.invitees ?? [];
+    const all = this.invitesStore().invitees ?? [];
     const counts = { YES: 0, NO: 0, MAYBE: 0, PENDING: 0 };
     for (const i of all)
       counts[i.rsvp]++;
@@ -62822,24 +62869,24 @@ var DashboardPageComponent = class _DashboardPageComponent {
   invitePieSegments = computed(() => this.toPieSegments(this.inviteSlices(), 72));
   // ---------- Calendar widget ----------
   nextAppointments = computed(() => {
-    const all = this.calendar.snapshot.appointments ?? [];
+    const all = this.calendarStore().appointments ?? [];
     const now = (/* @__PURE__ */ new Date()).toISOString();
     return [...all].filter((a) => a.start >= now).sort((a, b) => a.start.localeCompare(b.start)).slice(0, 3);
   });
   // ---------- Checklist widget ----------
   topTodos = computed(() => {
-    const all = this.checklist.snapshot.items ?? [];
+    const all = this.checklistStore().items ?? [];
     return [...all].filter((t) => !t.done).sort((a, b) => (a.dueDate || "9999-12-31").localeCompare(b.dueDate || "9999-12-31")).slice(0, 5);
   });
   // ---------- Budget pie ----------
-  currencyCode = computed(() => this.budget.snapshot.state.currency ?? "CAD");
-  totalBudget = computed(() => this.budget.snapshot.state.totalBudget ?? 0);
+  currencyCode = computed(() => this.budgetStore().state.currency ?? "CAD");
+  totalBudget = computed(() => this.budgetStore().state.totalBudget ?? 0);
   totalSpent = computed(() => {
-    const ex = this.budget.snapshot.expenses ?? [];
+    const ex = this.budgetStore().expenses ?? [];
     return ex.reduce((s, e) => s + (Number(e.amount) || 0), 0);
   });
   budgetSlices = computed(() => {
-    const ex = this.budget.snapshot.expenses ?? [];
+    const ex = this.budgetStore().expenses ?? [];
     const map2 = /* @__PURE__ */ new Map();
     for (const e of ex) {
       const key = e.category || e.vendor || "Other";
@@ -63003,49 +63050,6 @@ var DashboardPageComponent = class _DashboardPageComponent {
 (() => {
   (typeof ngDevMode === "undefined" || ngDevMode) && \u0275setClassDebugInfo(DashboardPageComponent, { className: "DashboardPageComponent" });
 })();
-
-// node_modules/@angular/core/fesm2022/rxjs-interop.mjs
-function toSignal(source, options) {
-  ngDevMode && assertNotInReactiveContext(toSignal, "Invoking `toSignal` causes new subscriptions every time. Consider moving `toSignal` outside of the reactive context and read the signal value where needed.");
-  const requiresCleanup = !options?.manualCleanup;
-  requiresCleanup && !options?.injector && assertInInjectionContext(toSignal);
-  const cleanupRef = requiresCleanup ? options?.injector?.get(DestroyRef) ?? inject(DestroyRef) : null;
-  let state2;
-  if (options?.requireSync) {
-    state2 = signal({
-      kind: 0
-      /* StateKind.NoValue */
-    });
-  } else {
-    state2 = signal({ kind: 1, value: options?.initialValue });
-  }
-  const sub = source.subscribe({
-    next: (value) => state2.set({ kind: 1, value }),
-    error: (error) => {
-      if (options?.rejectErrors) {
-        throw error;
-      }
-      state2.set({ kind: 2, error });
-    }
-    // Completion of the Observable is meaningless to the signal. Signals don't have a concept of
-    // "complete".
-  });
-  if (ngDevMode && options?.requireSync && state2().kind === 0) {
-    throw new RuntimeError(601, "`toSignal()` called with `requireSync` but `Observable` did not emit synchronously.");
-  }
-  cleanupRef?.onDestroy(sub.unsubscribe.bind(sub));
-  return computed(() => {
-    const current = state2();
-    switch (current.kind) {
-      case 1:
-        return current.value;
-      case 2:
-        throw current.error;
-      case 0:
-        throw new RuntimeError(601, "`toSignal()` called with `requireSync` but `Observable` did not emit synchronously.");
-    }
-  });
-}
 
 // node_modules/@angular/cdk/fesm2022/table.mjs
 var _c010 = [[["caption"]], [["colgroup"], ["col"]], "*"];
@@ -110725,10 +110729,11 @@ function BudgetPageComponent_div_61_Template(rf, ctx) {
 var BudgetPageComponent = class _BudgetPageComponent {
   svc = inject(BudgetService);
   dialog = inject(MatDialog);
+  store = toSignal(this.svc.storeObs$, { initialValue: this.svc.snapshot });
   cols = ["category", "vendor", "amount", "date", "paid", "actions"];
-  currency = computed(() => this.svc.snapshot.state.currency);
-  total = computed(() => this.svc.snapshot.state.totalBudget);
-  expenses = computed(() => this.svc.snapshot.expenses);
+  currency = computed(() => this.store().state.currency);
+  total = computed(() => this.store().state.totalBudget);
+  expenses = computed(() => this.store().expenses);
   spent = computed(() => this.expenses().reduce((s, e) => s + (e.amount || 0), 0));
   paidTotal = computed(() => this.expenses().filter((e) => e.paid).reduce((s, e) => s + e.amount, 0));
   unpaidTotal = computed(() => this.expenses().filter((e) => !e.paid).reduce((s, e) => s + e.amount, 0));
@@ -111772,9 +111777,10 @@ function ChecklistPageComponent_div_23_Template(rf, ctx) {
 var ChecklistPageComponent = class _ChecklistPageComponent {
   svc = inject(ChecklistService);
   dialog = inject(MatDialog);
+  store = toSignal(this.svc.storeObs$, { initialValue: this.svc.snapshot });
   filter = signal("ALL");
   counts = computed(() => {
-    const items = this.svc.snapshot.items;
+    const items = this.store().items;
     return {
       all: items.length,
       pending: items.filter((x) => !x.done).length,
@@ -111783,7 +111789,7 @@ var ChecklistPageComponent = class _ChecklistPageComponent {
   });
   rows = computed(() => {
     const f = this.filter();
-    const items = this.svc.snapshot.items;
+    const items = this.store().items;
     if (f === "ALL")
       return items;
     if (f === "DONE")
@@ -112123,9 +112129,10 @@ function CalendarPageComponent_div_15_Template(rf, ctx) {
 var CalendarPageComponent = class _CalendarPageComponent {
   svc = inject(CalendarService);
   dialog = inject(MatDialog);
+  store = toSignal(this.svc.storeObs$, { initialValue: this.svc.snapshot });
   typeFilter = signal("ALL");
   filteredRows = computed(() => {
-    const all = this.svc.snapshot.appointments;
+    const all = this.store().appointments;
     return [...all].sort((a, b) => a.start.localeCompare(b.start));
   });
   open(existing) {
@@ -115930,14 +115937,16 @@ var SeatingPageComponent = class _SeatingPageComponent {
   invites = inject(InvitesService);
   seating = inject(SeatingService);
   dialog = inject(MatDialog);
+  invitesStore = toSignal(this.invites.storeObs$, { initialValue: this.invites.snapshot });
+  seatingStore = toSignal(this.seating.storeObs$, { initialValue: this.seating.snapshot });
   q = signal("");
-  yesPool = computed(() => this.invites.snapshot.invitees.filter((i) => i.rsvp === "YES"));
-  tables = computed(() => this.seating.snapshot.tables);
-  assignments = computed(() => this.seating.snapshot.assignments);
+  yesPool = computed(() => this.invitesStore().invitees.filter((i) => i.rsvp === "YES"));
+  tables = computed(() => this.seatingStore().tables);
+  assignments = computed(() => this.seatingStore().assignments);
   assignedCount = computed(() => this.assignments().length);
   totalSeats = computed(() => this.tables().reduce((s, t) => s + t.seats, 0));
   inviteName(partyId) {
-    return this.invites.snapshot.parties.find((p) => p.id === partyId)?.inviteName ?? "\u2014";
+    return this.invitesStore().parties.find((p) => p.id === partyId)?.inviteName ?? "\u2014";
   }
   isAssigned(inviteeId) {
     return this.assignments().some((a) => a.inviteeId === inviteeId);
@@ -115954,7 +115963,7 @@ var SeatingPageComponent = class _SeatingPageComponent {
     });
   });
   tableGuests(tableId) {
-    const map2 = new Map(this.invites.snapshot.invitees.map((i) => [i.id, i]));
+    const map2 = new Map(this.invitesStore().invitees.map((i) => [i.id, i]));
     return this.assignments().filter((a) => a.tableId === tableId).map((a) => map2.get(a.inviteeId)).filter((x) => !!x);
   }
   dropToTable(event, t) {
@@ -115986,8 +115995,8 @@ var SeatingPageComponent = class _SeatingPageComponent {
       this.seating.unassign(a.inviteeId);
   }
   exportCsv() {
-    const invMap = new Map(this.invites.snapshot.invitees.map((i) => [i.id, i]));
-    const partyMap = new Map(this.invites.snapshot.parties.map((p) => [p.id, p]));
+    const invMap = new Map(this.invitesStore().invitees.map((i) => [i.id, i]));
+    const partyMap = new Map(this.invitesStore().parties.map((p) => [p.id, p]));
     const tableMap = new Map(this.tables().map((t) => [t.id, t.name]));
     const header = ["InviteName", "CompanionName", "RSVP", "TableName"];
     const rows = this.assignments().map((a) => {
