@@ -17,4 +17,8 @@ public class AuthContextService {
     public String currentPlanId() {
         return current().planId();
     }
+
+    public boolean isAdmin() {
+        return current().isAdmin();
+    }
 }

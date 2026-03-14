@@ -22,6 +22,9 @@ public class AppUserEntity {
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
+    @Column(name = "is_admin", nullable = false)
+    private boolean isAdmin;
+
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
 
@@ -33,4 +36,7 @@ public class AppUserEntity {
 
     public String getPasswordHash() { return passwordHash; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
+
+    public boolean isAdmin() { return isAdmin; }
+    public void setAdmin(boolean admin) { isAdmin = admin; }
 }

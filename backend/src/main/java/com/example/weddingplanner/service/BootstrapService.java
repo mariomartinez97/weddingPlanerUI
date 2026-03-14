@@ -48,8 +48,14 @@ public class BootstrapService implements CommandLineRunner {
             user.setEmail(adminEmail.trim().toLowerCase());
             user.setDisplayName("Admin");
             user.setPasswordHash(passwords.encode(adminPassword));
+            user.setAdmin(true);
             return users.save(user);
         });
+
+        if (!admin.isAdmin()) {
+            admin.setAdmin(true);
+            users.save(admin);
+        }
 
         if (!accessRepo.existsByUserIdAndPlanId(admin.getId(), defaultPlan.getId())) {
             UserPlanAccessEntity access = new UserPlanAccessEntity();

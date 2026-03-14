@@ -94,7 +94,7 @@ public class AuthService {
             }
         }
 
-        return new AuthPrincipal(user.getId(), user.getEmail(), user.getDisplayName(), resolvedPlanId);
+        return new AuthPrincipal(user.getId(), user.getEmail(), user.getDisplayName(), resolvedPlanId, user.isAdmin());
     }
 
     private AppUserEntity resolveUserByToken(String token) {
@@ -115,7 +115,7 @@ public class AuthService {
     }
 
     private AuthUserDto toUserDto(AppUserEntity user) {
-        return new AuthUserDto(user.getId(), user.getEmail(), user.getDisplayName());
+        return new AuthUserDto(user.getId(), user.getEmail(), user.getDisplayName(), user.isAdmin());
     }
 
     private AccessiblePlanDto toPlanDto(PlanEntity plan) {

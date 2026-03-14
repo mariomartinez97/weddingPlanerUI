@@ -1,4 +1,4 @@
 package com.example.weddingplanner.api.dto;
 
-public record AuthUserDto(String id, String email, String displayName) {
+public record AuthUserDto(String id, String email, String displayName, boolean isAdmin) {
 }

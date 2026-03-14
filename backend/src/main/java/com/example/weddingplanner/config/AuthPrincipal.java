@@ -4,6 +4,7 @@ public record AuthPrincipal(
         String userId,
         String email,
         String displayName,
-        String planId
+        String planId,
+        boolean isAdmin
 ) {
 }
