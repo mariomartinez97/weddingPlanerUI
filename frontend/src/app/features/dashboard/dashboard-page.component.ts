@@ -258,14 +258,19 @@ export class DashboardPageComponent {
   private toPieSegments(slices: Slice[], r: number): Seg[] {
     const total = slices.reduce((s, x) => s + x.value, 0);
     const safeTotal = total <= 0 ? 1 : total;
+    const EPS = 1e-6;
 
     let start = -Math.PI / 2;
     return slices
       .filter(s => s.value > 0)
       .map(s => {
-        const angle = (s.value / safeTotal) * Math.PI * 2;
+        const ratio = s.value / safeTotal;
+        const angle = ratio * Math.PI * 2;
         const end = start + angle;
-        const d = this.arcPath(0, 0, r, start, end);
+        // A 100% slice needs a dedicated full-circle path; an SVG arc where start=end won't render.
+        const d = Math.abs(ratio - 1) < EPS
+          ? this.fullCirclePath(0, 0, r)
+          : this.arcPath(0, 0, r, start, end);
         const seg = { d, color: s.color || '#94a3b8' };
         start = end;
         return seg;
@@ -285,6 +290,16 @@ export class DashboardPageComponent {
       `L ${x1} ${y1}`,
       `A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`,
       `Z`,
+    ].join(' ');
+  }
+
+  private fullCirclePath(cx: number, cy: number, r: number) {
+    return [
+      `M ${cx} ${cy}`,
+      `m ${-r}, 0`,
+      `a ${r},${r} 0 1,0 ${2 * r},0`,
+      `a ${r},${r} 0 1,0 ${-2 * r},0`,
+      'Z',
     ].join(' ');
   }
 }
