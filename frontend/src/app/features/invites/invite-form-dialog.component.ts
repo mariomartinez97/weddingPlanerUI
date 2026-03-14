@@ -1,4 +1,4 @@
-import { Component, Inject, inject } from '@angular/core';
+import { Component, Inject, inject, signal } from '@angular/core';
 import { NgIf } from '@angular/common';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angular/forms';
@@ -163,8 +163,13 @@ type DialogData = {
   </div>
 
   <div mat-dialog-actions align="end" style="gap:10px;">
+    <div *ngIf="errorMsg()" style="margin-right:auto; color:#b00020; font-size:13px;">
+      {{ errorMsg() }}
+    </div>
     <button mat-button (click)="ref.close()">Cancel</button>
-    <button mat-flat-button color="primary" [disabled]="saveDisabled()" (click)="save()">Save</button>
+    <button mat-flat-button color="primary" [disabled]="saveDisabled() || saving()" (click)="save()">
+      {{ saving() ? 'Saving...' : 'Save' }}
+    </button>
   </div>
   `,
   styles: [`
@@ -175,6 +180,8 @@ type DialogData = {
 export class InviteFormDialogComponent {
   private svc = inject(InvitesService);
   ref = inject(MatDialogRef<InviteFormDialogComponent>);
+  saving = signal(false);
+  errorMsg = signal('');
 
   // INVITE (main)
   partyForm = new FormGroup({
@@ -240,57 +247,67 @@ export class InviteFormDialogComponent {
 
   // ---------- Save ----------
   async save() {
-    // Editing a companion: ONLY update that person's fields.
-    // Do not modify the invite (party) info from this dialog.
-    if (this.data.existingInvitee) {
-      const v = this.personForm.getRawValue();
-      await this.svc.updateInvitee(this.data.existingInvitee.id, {
-        fullName: v.fullName.trim(),
-        rsvp: v.rsvp,
-        mealChoice: v.mealChoice || undefined,
-        notes: v.personNotes || undefined,
-      });
-      this.ref.close(true);
-      return;
-    }
+    this.errorMsg.set('');
+    this.saving.set(true);
+    try {
+      // Editing a companion: ONLY update that person's fields.
+      // Do not modify the invite (party) info from this dialog.
+      if (this.data.existingInvitee) {
+        const v = this.personForm.getRawValue();
+        await this.svc.updateInvitee(this.data.existingInvitee.id, {
+          fullName: v.fullName.trim(),
+          rsvp: v.rsvp,
+          mealChoice: v.mealChoice || undefined,
+          notes: v.personNotes || undefined,
+        });
+        this.ref.close(true);
+        return;
+      }
 
-    // Creating or editing an invite (party)
-    const p = this.partyForm.getRawValue();
-    const inviteName = p.inviteName.trim();
+      // Creating or editing an invite (party)
+      const p = this.partyForm.getRawValue();
+      const inviteName = p.inviteName.trim();
 
-    // Editing existing invite must update by id only (avoid creating a new row when name changes).
-    if (this.data.existingParty) {
-      await this.svc.updateParty(this.data.existingParty.id, {
+      // Editing existing invite must update by id only (avoid creating a new row when name changes).
+      if (this.data.existingParty) {
+        await this.svc.updateParty(this.data.existingParty.id, {
+          inviteName,
+          contact: { email: p.email || undefined, phone: p.phone || undefined },
+          notes: p.partyNotes || undefined,
+        });
+        this.ref.close(true);
+        return;
+      }
+
+      // New invite flow.
+      // Backend owns primary companion creation (fullName = inviteName).
+      const party = await this.svc.upsertParty(
         inviteName,
-        contact: { email: p.email || undefined, phone: p.phone || undefined },
-        notes: p.partyNotes || undefined,
-      });
+        { email: p.email || undefined, phone: p.phone || undefined },
+        p.partyNotes || undefined
+      );
+
+      // Optional extra companion (user entered)
+      const c = this.companionAddForm.getRawValue();
+      const extraName = (c.fullName || '').trim();
+      if (extraName && extraName.toLowerCase() !== inviteName.toLowerCase()) {
+        await this.svc.addInvitee({
+          partyId: party.id,
+          fullName: extraName,
+          rsvp: c.rsvp,
+          mealChoice: c.mealChoice || undefined,
+          notes: c.personNotes || undefined,
+        });
+      }
+
       this.ref.close(true);
-      return;
+    } catch (err: any) {
+      const status = err?.status ? ` (HTTP ${err.status})` : '';
+      this.errorMsg.set(`Could not save invite${status}. Check API/rewrite settings and try again.`);
+      console.error('Invite save failed', err);
+    } finally {
+      this.saving.set(false);
     }
-
-    // New invite flow.
-    // Backend owns primary companion creation (fullName = inviteName).
-    const party = await this.svc.upsertParty(
-      inviteName,
-      { email: p.email || undefined, phone: p.phone || undefined },
-      p.partyNotes || undefined
-    );
-
-    // Optional extra companion (user entered)
-    const c = this.companionAddForm.getRawValue();
-    const extraName = (c.fullName || '').trim();
-    if (extraName && extraName.toLowerCase() !== inviteName.toLowerCase()) {
-      await this.svc.addInvitee({
-        partyId: party.id,
-        fullName: extraName,
-        rsvp: c.rsvp,
-        mealChoice: c.mealChoice || undefined,
-        notes: c.personNotes || undefined,
-      });
-    }
-
-    this.ref.close(true);
   }
   
 }
