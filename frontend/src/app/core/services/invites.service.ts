@@ -103,6 +103,10 @@ export class InvitesService {
     await this.load();
   }
 
+  async refresh(): Promise<void> {
+    await this.load();
+  }
+
   // ----------------------
   // Invite (Party) CRUD
   // ----------------------

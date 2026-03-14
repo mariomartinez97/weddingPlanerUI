@@ -70,6 +70,10 @@ export class BudgetService {
     await this.load();
   }
 
+  async refresh() {
+    await this.load();
+  }
+
   setTotalBudget(totalBudget: number, currency: BudgetState['currency']) {
     void firstValueFrom(this.http.put(`${API_BASE}/budget/state`, { totalBudget, currency }))
       .then(() => this.reload());

@@ -41,6 +41,10 @@ export class SeatingService {
     await this.load();
   }
 
+  async refresh() {
+    await this.load();
+  }
+
   setTables(tables: TableDef[]) {
     // prune assignments to removed invitees locally before sending full table replacement
     const inviteeIds = new Set(this.invites.snapshot.invitees.map(i => i.id));

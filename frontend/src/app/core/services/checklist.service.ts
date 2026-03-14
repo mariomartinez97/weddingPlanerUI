@@ -44,6 +44,10 @@ export class ChecklistService {
     await this.load();
   }
 
+  async refresh() {
+    await this.load();
+  }
+
   addItem(input: Omit<ChecklistItem, 'id'>) {
     void firstValueFrom(this.http.post(`${API_BASE}/checklist/items`, input))
       .then(() => this.reload());

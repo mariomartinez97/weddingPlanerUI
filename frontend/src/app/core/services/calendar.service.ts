@@ -48,6 +48,10 @@ export class CalendarService {
     await this.load();
   }
 
+  async refresh() {
+    await this.load();
+  }
+
   addAppointment(input: Omit<Appointment, 'id'>) {
     void firstValueFrom(this.http.post(`${API_BASE}/calendar/appointments`, input))
       .then(() => this.reload());

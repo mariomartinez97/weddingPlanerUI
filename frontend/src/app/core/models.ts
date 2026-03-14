@@ -69,3 +69,33 @@ export interface SeatingAssignment {
   tableId: string;
   seatNumber?: number;
 }
+
+export interface AccessiblePlan {
+  id: string;
+  name: string;
+}
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  displayName: string;
+}
+
+export interface AuthSession {
+  token: string;
+  user: AuthUser;
+  plans: AccessiblePlan[];
+}
+
+export interface AuditEntry {
+  id: string;
+  userId: string;
+  userDisplayName?: string;
+  userEmail?: string;
+  planId: string;
+  action: string;
+  entityType: string;
+  entityId?: string;
+  summary?: string;
+  createdAt?: string;
+}

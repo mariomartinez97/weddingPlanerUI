@@ -7,6 +7,8 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
 import { TranslatePipe } from '../pipes/translate.pipe';
 
 import { InvitesService } from '../services/invites.service';
@@ -15,14 +17,16 @@ import { ChecklistService } from '../services/checklist.service';
 import { CalendarService } from '../services/calendar.service';
 import { SeatingService } from '../services/seating.service';
 import { AppLanguage, I18nService } from '../services/i18n.service';
+import { AuthService } from '../services/auth.service';
 
-import { NgIf } from '@angular/common';
+import { NgFor, NgIf } from '@angular/common';
 
 @Component({
   selector: 'app-shell',
   standalone: true,
   imports: [
     NgIf,
+    NgFor,
     RouterOutlet,
     RouterLink,
     RouterLinkActive,
@@ -31,6 +35,8 @@ import { NgIf } from '@angular/common';
     MatListModule,
     MatIconModule,
     MatButtonModule,
+    MatFormFieldModule,
+    MatSelectModule,
     TranslatePipe,
   ],
   styles: [`
@@ -177,6 +183,15 @@ import { NgIf } from '@angular/common';
           <span matListItemTitle>{{ 'navSeating' | t }}</span>
         </a>
 
+        <a mat-list-item
+           class="nav-item"
+           routerLink="/activity"
+           routerLinkActive="active"
+           (click)="closeIfMobile()">
+          <mat-icon matListItemIcon>history</mat-icon>
+          <span matListItemTitle>Activity</span>
+        </a>
+
       </mat-nav-list>
     </mat-sidenav>
 
@@ -189,6 +204,13 @@ import { NgIf } from '@angular/common';
 
         <span style="flex:1 1 auto"></span>
 
+        <mat-form-field appearance="fill" style="width:240px; margin-right:12px;">
+          <mat-label>Plan</mat-label>
+          <mat-select [value]="activePlanId()" (selectionChange)="switchPlan($event.value)">
+            <mat-option *ngFor="let plan of plans()" [value]="plan.id">{{ plan.name }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
         <div class="language-toggle" aria-label="Language toggle">
           <button mat-stroked-button type="button" [class.active]="language() === 'en'" (click)="setLanguage('en')">
             {{ 'shortEn' | t }}
@@ -197,6 +219,10 @@ import { NgIf } from '@angular/common';
             {{ 'shortEs' | t }}
           </button>
         </div>
+
+        <button mat-button type="button" style="margin-left:12px;" (click)="logout()">
+          Logout
+        </button>
       </mat-toolbar>
 
       <router-outlet></router-outlet>
@@ -215,12 +241,15 @@ export class ShellComponent {
   private calendar = inject(CalendarService);
   private seating = inject(SeatingService);
   private i18n = inject(I18nService);
+  private auth = inject(AuthService);
 
   private bp = inject(BreakpointObserver);
   private demoSeeded = signal(false);
 
   isHandset = signal(false);
   language = this.i18n.language;
+  plans = () => this.auth.plans();
+  activePlanId = this.auth.activePlanId;
 
   constructor() {
     this.bp.observe([Breakpoints.Handset])
@@ -235,6 +264,19 @@ export class ShellComponent {
 
   setLanguage(language: AppLanguage) {
     this.i18n.setLanguage(language);
+  }
+
+  async switchPlan(planId: string) {
+    this.auth.setActivePlan(planId);
+    await this.invites.refresh();
+    await this.budget.refresh();
+    await this.checklist.refresh();
+    await this.calendar.refresh();
+    await this.seating.refresh();
+  }
+
+  async logout() {
+    await this.auth.logout();
   }
 
   async seedDemo() {
