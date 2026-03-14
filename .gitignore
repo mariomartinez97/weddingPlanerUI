@@ -5,3 +5,5 @@ backend/target/*
 *.DS_Store
 .DS_Store
 frontend/dist/*
+frontend/dist/wedding-planner-ui/browser/main.js
+frontend/dist/wedding-planner-ui/browser/main.js.map
