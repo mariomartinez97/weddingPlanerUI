@@ -9,6 +9,7 @@ import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
+import java.util.Locale;
 import java.util.List;
 
 @Service
@@ -26,6 +27,17 @@ public class InvitesFacade {
 
     public List<InviteDto> listAll() {
         return invites.findAll().stream()
+                .sorted(Comparator.comparing(InviteEntity::getInviteName, String.CASE_INSENSITIVE_ORDER))
+                .map(this::toDto)
+                .toList();
+    }
+
+    public List<InviteDto> searchByName(String q) {
+        if (isBlank(q)) return listAll();
+        String needle = q.trim().toLowerCase();
+
+        return invites.findAll().stream()
+                .filter(inv -> matchesInvite(inv, needle) || matchesCompanion(inv, needle))
                 .sorted(Comparator.comparing(InviteEntity::getInviteName, String.CASE_INSENSITIVE_ORDER))
                 .map(this::toDto)
                 .toList();
@@ -135,6 +147,43 @@ public class InvitesFacade {
     }
 
     @Transactional
+    public InviteeDto patchInviteeRsvp(String inviteeId, String rsvp) {
+        InviteeEntity e = invitees.findById(inviteeId).orElseThrow();
+        e.setRsvp(normalizeRsvp(rsvp));
+        invitees.save(e);
+        return toDto(e);
+    }
+
+    @Transactional
+    public List<InviteeDto> patchInviteRsvp(String inviteId, String rsvp, boolean includeCompanions) {
+        InviteEntity inv = invites.findById(inviteId).orElseThrow();
+        List<InviteeEntity> companions = invitees.findByInvite_Id(inviteId);
+        if (companions.isEmpty()) return List.of();
+
+        String normalized = normalizeRsvp(rsvp);
+        if (includeCompanions) {
+            for (InviteeEntity c : companions) {
+                c.setRsvp(normalized);
+                invitees.save(c);
+            }
+            return companions.stream()
+                    .sorted(Comparator.comparing(InviteeEntity::getFullName, String.CASE_INSENSITIVE_ORDER))
+                    .map(this::toDto)
+                    .toList();
+        }
+
+        // "one invite" = primary person for this invite. Prefer exact name match with inviteName.
+        InviteeEntity primary = companions.stream()
+                .filter(c -> safeEq(c.getFullName(), inv.getInviteName()))
+                .findFirst()
+                .orElse(companions.getFirst());
+
+        primary.setRsvp(normalized);
+        invitees.save(primary);
+        return List.of(toDto(primary));
+    }
+
+    @Transactional
     public void deleteInvitee(String inviteeId) {
         invitees.deleteById(inviteeId);
     }
@@ -175,6 +224,20 @@ public class InvitesFacade {
             case "M" -> "MAYBE";
             default -> "PENDING";
         };
+    }
+
+    private static boolean matchesInvite(InviteEntity inv, String needle) {
+        return containsIgnoreCase(inv.getInviteName(), needle);
+    }
+
+    private static boolean matchesCompanion(InviteEntity inv, String needle) {
+        if (inv.getInvitees() == null || inv.getInvitees().isEmpty()) return false;
+        return inv.getInvitees().stream().anyMatch(c -> containsIgnoreCase(c.getFullName(), needle));
+    }
+
+    private static boolean containsIgnoreCase(String value, String needle) {
+        if (value == null || needle == null) return false;
+        return value.toLowerCase(Locale.ROOT).contains(needle.toLowerCase(Locale.ROOT));
     }
 
     private static boolean isBlank(String s) { return s == null || s.trim().isEmpty(); }

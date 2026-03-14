@@ -22,6 +22,11 @@ public class InvitesController {
         return facade.listAll();
     }
 
+    @GetMapping("/invites/search")
+    public List<InviteDto> searchInvites(@RequestParam("q") String q) {
+        return facade.searchByName(q);
+    }
+
     @PostMapping("/invites")
     @ResponseStatus(HttpStatus.CREATED)
     public InviteDto createInvite(@RequestBody CreateInviteRequest req) {
@@ -48,6 +53,17 @@ public class InvitesController {
     @PutMapping("/invitees/{inviteeId}")
     public InviteeDto updateInvitee(@PathVariable String inviteeId, @RequestBody UpdateInviteeRequest req) {
         return facade.updateInvitee(inviteeId, req);
+    }
+
+    @PatchMapping("/invitees/{inviteeId}/rsvp")
+    public InviteeDto patchInviteeRsvp(@PathVariable String inviteeId, @RequestBody UpdateInviteeRsvpRequest req) {
+        return facade.patchInviteeRsvp(inviteeId, req.rsvp());
+    }
+
+    @PatchMapping("/invites/{inviteId}/rsvp")
+    public List<InviteeDto> patchInviteRsvp(@PathVariable String inviteId, @RequestBody UpdateInviteRsvpRequest req) {
+        boolean includeCompanions = Boolean.TRUE.equals(req.includeCompanions());
+        return facade.patchInviteRsvp(inviteId, req.rsvp(), includeCompanions);
     }
 
     @DeleteMapping("/invitees/{inviteeId}")
