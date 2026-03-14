@@ -1,66 +1,78 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, firstValueFrom } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
 import { Appointment } from '../models';
-import { loadFromStorage, saveToStorage, uid } from './storage.util';
 
 type CalendarStore = { appointments: Appointment[] };
-const KEY = 'wp_calendar_v1';
+const API_BASE = '/api';
+
+type AppointmentApi = {
+  id: string;
+  type: Appointment['type'];
+  title: string;
+  withWhom: string;
+  start: string;
+  end: string;
+  location?: string | null;
+  notes?: string | null;
+};
 
 @Injectable({ providedIn: 'root' })
 export class CalendarService {
-  private store$ = new BehaviorSubject<CalendarStore>(loadFromStorage<CalendarStore>(KEY, { appointments: [] }));
+  private store$ = new BehaviorSubject<CalendarStore>({ appointments: [] });
   storeObs$ = this.store$.asObservable();
   get snapshot(): CalendarStore { return this.store$.value; }
 
-  private persist(next: CalendarStore) {
-    this.store$.next(next);
-    saveToStorage(KEY, next);
+  constructor(private http: HttpClient) {
+    void this.load();
+  }
+
+  private async load() {
+    const safe = await firstValueFrom(this.http.get<AppointmentApi[]>(`${API_BASE}/calendar/appointments`)).catch(() => []);
+    const appointments = Array.isArray(safe) ? safe : [];
+    this.store$.next({
+      appointments: appointments.map(a => ({
+        id: a.id,
+        type: a.type,
+        title: a.title,
+        withWhom: a.withWhom,
+        start: a.start,
+        end: a.end,
+        location: a.location ?? undefined,
+        notes: a.notes ?? undefined,
+      })),
+    });
+  }
+
+  private async reload() {
+    await this.load();
   }
 
   addAppointment(input: Omit<Appointment, 'id'>) {
-    const s = this.snapshot;
-    const appt: Appointment = { ...input, id: uid('appt') };
-    this.persist({ appointments: [appt, ...s.appointments] });
+    void firstValueFrom(this.http.post(`${API_BASE}/calendar/appointments`, input))
+      .then(() => this.reload());
   }
 
   updateAppointment(id: string, patch: Partial<Appointment>) {
-    const s = this.snapshot;
-    this.persist({ appointments: s.appointments.map(a => a.id === id ? { ...a, ...patch } : a) });
+    const existing = this.snapshot.appointments.find(a => a.id === id);
+    if (!existing) return;
+
+    const next: Appointment = { ...existing, ...patch, id };
+    void firstValueFrom(this.http.put(`${API_BASE}/calendar/appointments/${id}`, next))
+      .then(() => this.reload());
   }
 
   deleteAppointment(id: string) {
-    const s = this.snapshot;
-    this.persist({ appointments: s.appointments.filter(a => a.id !== id) });
+    void firstValueFrom(this.http.delete(`${API_BASE}/calendar/appointments/${id}`))
+      .then(() => this.reload());
   }
 
-  clearAll() { this.persist({ appointments: [] }); }
+  clearAll() {
+    void firstValueFrom(this.http.delete(`${API_BASE}/calendar/appointments`))
+      .then(() => this.reload());
+  }
 
   seedDemo() {
-    if (this.snapshot.appointments.length) return;
-    this.addAppointment({
-      type: 'WEDDING_PLANNER',
-      title: 'Planning meeting',
-      withWhom: 'Olivia (Planner)',
-      start: '2026-03-05T18:00:00',
-      end: '2026-03-05T18:45:00',
-      location: 'Zoom',
-      notes: 'Discuss timeline & vendor shortlist'
-    });
-    this.addAppointment({
-      type: 'VENUE_MANAGER',
-      title: 'Venue walkthrough',
-      withWhom: 'Venue Manager',
-      start: '2026-03-12T14:00:00',
-      end: '2026-03-12T15:00:00',
-      location: 'Green Hall',
-    });
-    this.addAppointment({
-      type: 'PROVIDER',
-      title: 'Cake tasting',
-      withWhom: 'Sweet Cakes',
-      start: '2026-03-20T16:00:00',
-      end: '2026-03-20T16:45:00',
-      location: 'Downtown',
-    });
+    return;
   }
 }

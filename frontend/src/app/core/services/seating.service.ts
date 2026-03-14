@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, firstValueFrom } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
 import { SeatingAssignment, TableDef } from '../models';
-import { loadFromStorage, saveToStorage, uid } from './storage.util';
 import { InvitesService } from './invites.service';
 
 type SeatingStore = {
@@ -9,92 +9,68 @@ type SeatingStore = {
   assignments: SeatingAssignment[];
 };
 
-const KEY = 'wp_seating_v1';
+const API_BASE = '/api';
+
+type SeatingPayloadApi = {
+  tables?: TableDef[];
+  assignments?: SeatingAssignment[];
+};
 
 @Injectable({ providedIn: 'root' })
 export class SeatingService {
-  private store$ = new BehaviorSubject<SeatingStore>(
-    loadFromStorage<SeatingStore>(KEY, { tables: [], assignments: [] })
-  );
+  private store$ = new BehaviorSubject<SeatingStore>({ tables: [], assignments: [] });
 
   storeObs$ = this.store$.asObservable();
   get snapshot(): SeatingStore { return this.store$.value; }
 
-  constructor(private invites: InvitesService) {}
+  constructor(private invites: InvitesService, private http: HttpClient) {
+    void this.load();
+  }
 
-  private persist(next: SeatingStore) {
-    this.store$.next(next);
-    saveToStorage(KEY, next);
+  private async load() {
+    const payload = await firstValueFrom(this.http.get<SeatingPayloadApi>(`${API_BASE}/seating`)).catch(() => null);
+    if (!payload) return;
+
+    this.store$.next({
+      tables: Array.isArray(payload.tables) ? payload.tables : [],
+      assignments: Array.isArray(payload.assignments) ? payload.assignments : [],
+    });
+  }
+
+  private async reload() {
+    await this.load();
   }
 
   setTables(tables: TableDef[]) {
-    const s = this.snapshot;
-
-    // prune assignments to removed tables
-    const tableIds = new Set(tables.map(t => t.id));
-    let assignments = s.assignments.filter(a => tableIds.has(a.tableId));
-
-    // prune assignments to removed invitees (important if invites got deleted)
+    // prune assignments to removed invitees locally before sending full table replacement
     const inviteeIds = new Set(this.invites.snapshot.invitees.map(i => i.id));
-    assignments = assignments.filter(a => inviteeIds.has(a.inviteeId));
+    const validAssignments = this.snapshot.assignments.filter(a => inviteeIds.has(a.inviteeId));
+    this.store$.next({ tables, assignments: validAssignments });
 
-    this.persist({ tables, assignments });
+    void firstValueFrom(this.http.put(`${API_BASE}/seating/tables`, tables))
+      .then(() => this.reload());
   }
 
   clearAssignments() {
-    const s = this.snapshot;
-    this.persist({ ...s, assignments: [] });
+    void firstValueFrom(this.http.delete(`${API_BASE}/seating/assignments`))
+      .then(() => this.reload());
   }
 
   assign(inviteeId: string, tableId: string) {
-    const s = this.snapshot;
-
-    // remove any existing assignment for that invitee
-    const without = s.assignments.filter(a => a.inviteeId !== inviteeId);
-
-    this.persist({ ...s, assignments: [{ inviteeId, tableId }, ...without] });
+    void firstValueFrom(this.http.put(`${API_BASE}/seating/assignments/${inviteeId}`, { tableId }))
+      .then(() => this.reload());
   }
 
   unassign(inviteeId: string) {
-    const s = this.snapshot;
-    this.persist({ ...s, assignments: s.assignments.filter(a => a.inviteeId !== inviteeId) });
+    void firstValueFrom(this.http.delete(`${API_BASE}/seating/assignments/${inviteeId}`))
+      .then(() => this.reload());
   }
 
   clearAll() {
-    this.persist({ tables: [], assignments: [] });
+    void this.setTables([]);
   }
 
   seedDemo() {
-    const s = this.snapshot;
-    if (s.tables.length) return;
-
-    const t1: TableDef = { id: uid('tbl'), name: 'Table 1', seats: 8 };
-    const t2: TableDef = { id: uid('tbl'), name: 'Table 2', seats: 8 };
-    this.setTables([t1, t2]);
-
-    // assign RSVP YES guests across tables (respect capacity)
-    const yes = this.invites.snapshot.invitees.filter(i => i.rsvp === 'YES');
-    const tables = [t1, t2];
-
-    let ti = 0;
-    const used = new Map<string, number>(tables.map(t => [t.id, 0]));
-
-    for (const person of yes) {
-      // find next table with space
-      let placed = false;
-      for (let attempts = 0; attempts < tables.length; attempts++) {
-        const t = tables[ti % tables.length];
-        ti++;
-
-        const cnt = used.get(t.id) || 0;
-        if (cnt < t.seats) {
-          this.assign(person.id, t.id);
-          used.set(t.id, cnt + 1);
-          placed = true;
-          break;
-        }
-      }
-      if (!placed) break; // all tables full
-    }
+    return;
   }
 }

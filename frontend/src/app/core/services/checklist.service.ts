@@ -1,44 +1,74 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, firstValueFrom } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
 import { ChecklistItem } from '../models';
-import { loadFromStorage, saveToStorage, uid } from './storage.util';
 
 type ChecklistStore = { items: ChecklistItem[] };
-const KEY = 'wp_checklist_v1';
+const API_BASE = '/api';
+
+type ChecklistItemApi = {
+  id: string;
+  title: string;
+  owner: string;
+  dueDate?: string | null;
+  done: boolean;
+  notes?: string | null;
+};
 
 @Injectable({ providedIn: 'root' })
 export class ChecklistService {
-  private store$ = new BehaviorSubject<ChecklistStore>(loadFromStorage<ChecklistStore>(KEY, { items: [] }));
+  private store$ = new BehaviorSubject<ChecklistStore>({ items: [] });
   storeObs$ = this.store$.asObservable();
   get snapshot(): ChecklistStore { return this.store$.value; }
 
-  private persist(next: ChecklistStore) {
-    this.store$.next(next);
-    saveToStorage(KEY, next);
+  constructor(private http: HttpClient) {
+    void this.load();
+  }
+
+  private async load() {
+    const safe = await firstValueFrom(this.http.get<ChecklistItemApi[]>(`${API_BASE}/checklist/items`)).catch(() => []);
+    const items = Array.isArray(safe) ? safe : [];
+    this.store$.next({
+      items: items.map(i => ({
+        id: i.id,
+        title: i.title,
+        owner: i.owner,
+        dueDate: i.dueDate ?? undefined,
+        done: !!i.done,
+        notes: i.notes ?? undefined,
+      })),
+    });
+  }
+
+  private async reload() {
+    await this.load();
   }
 
   addItem(input: Omit<ChecklistItem, 'id'>) {
-    const s = this.snapshot;
-    const item: ChecklistItem = { ...input, id: uid('task') };
-    this.persist({ items: [item, ...s.items] });
+    void firstValueFrom(this.http.post(`${API_BASE}/checklist/items`, input))
+      .then(() => this.reload());
   }
 
   updateItem(id: string, patch: Partial<ChecklistItem>) {
-    const s = this.snapshot;
-    this.persist({ items: s.items.map(it => it.id === id ? { ...it, ...patch } : it) });
+    const existing = this.snapshot.items.find(it => it.id === id);
+    if (!existing) return;
+
+    const next: ChecklistItem = { ...existing, ...patch, id };
+    void firstValueFrom(this.http.put(`${API_BASE}/checklist/items/${id}`, next))
+      .then(() => this.reload());
   }
 
   deleteItem(id: string) {
-    const s = this.snapshot;
-    this.persist({ items: s.items.filter(it => it.id !== id) });
+    void firstValueFrom(this.http.delete(`${API_BASE}/checklist/items/${id}`))
+      .then(() => this.reload());
   }
 
-  clearAll() { this.persist({ items: [] }); }
+  clearAll() {
+    void firstValueFrom(this.http.delete(`${API_BASE}/checklist/items`))
+      .then(() => this.reload());
+  }
 
   seedDemo() {
-    if (this.snapshot.items.length) return;
-    this.addItem({ title: 'Book venue', owner: 'Mario', dueDate: '2026-03-01', done: true });
-    this.addItem({ title: 'Finalize guest list', owner: 'Maria Paula', dueDate: '2026-03-10', done: false });
-    this.addItem({ title: 'Schedule tasting', owner: 'Planner', dueDate: '2026-03-20', done: false });
+    return;
   }
 }

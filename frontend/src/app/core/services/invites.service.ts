@@ -65,7 +65,9 @@ export class InvitesService {
   storeObs$ = this.store$.asObservable();
   get snapshot(): InvitesStore { return this.store$.value; }
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) {
+    void this.load();
+  }
 
   // ----------------------
   // Loading / mapping
