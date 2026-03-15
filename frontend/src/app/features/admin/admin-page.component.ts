@@ -25,6 +25,64 @@ import { AccessiblePlan, AdminUser } from '../../core/models';
     MatCheckboxModule,
     MatSelectModule,
   ],
+  styles: [`
+    .admin-layout {
+      display: grid;
+      grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
+      gap: 20px;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 800;
+      margin-bottom: 14px;
+    }
+
+    .stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .user-list {
+      display: grid;
+      gap: 14px;
+    }
+
+    .user-card {
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 16px;
+      padding: 16px;
+      background: rgba(255,255,255,0.55);
+    }
+
+    .user-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 220px;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .user-actions {
+      display: grid;
+      gap: 10px;
+    }
+
+    .inline-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 1100px) {
+      .admin-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .user-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  `],
   template: `
     <div class="page">
       <div class="page-header">
@@ -38,11 +96,11 @@ import { AccessiblePlan, AdminUser } from '../../core/models';
         </button>
       </div>
 
-      <div class="grid">
-        <div class="col-5 card">
-          <div style="font-weight:800; margin-bottom:12px;">New user</div>
+      <div class="admin-layout">
+        <div class="card">
+          <div class="section-title">New user</div>
 
-          <div style="display:grid; gap:12px;">
+          <div class="stack">
             <mat-form-field appearance="fill">
               <mat-label>Email</mat-label>
               <input matInput [(ngModel)]="draft.email">
@@ -72,26 +130,49 @@ import { AccessiblePlan, AdminUser } from '../../core/models';
           </div>
         </div>
 
-        <div class="col-7 card">
-          <div style="font-weight:800; margin-bottom:12px;">Users</div>
+        <div class="card">
+          <div class="section-title">Users</div>
 
           <div *ngIf="users().length===0" style="opacity:.75;">No users found.</div>
 
-          <div *ngFor="let user of users()" style="padding:14px 0; border-bottom:1px solid rgba(0,0,0,0.06);">
-            <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap;">
-              <div>
-                <div style="font-weight:700;">{{ user.displayName }}</div>
-                <div style="opacity:.75; font-size:13px;">{{ user.email }}</div>
-              </div>
-              <mat-checkbox [ngModel]="user.isAdmin" (ngModelChange)="setAdmin(user, $event)">Admin</mat-checkbox>
-            </div>
+          <div class="user-list">
+            <div *ngFor="let user of users()" class="user-card">
+              <div class="user-grid">
+                <div>
+                  <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+                    <div>
+                      <div style="font-weight:700;">{{ user.displayName }}</div>
+                      <div style="opacity:.75; font-size:13px;">{{ user.email }}</div>
+                    </div>
+                    <mat-checkbox [ngModel]="user.isAdmin" (ngModelChange)="setAdmin(user, $event)">Admin</mat-checkbox>
+                  </div>
 
-            <mat-form-field appearance="fill" style="width:100%; margin-top:10px;">
-              <mat-label>Plan access</mat-label>
-              <mat-select multiple [ngModel]="user.planIds" (ngModelChange)="setPlans(user, $event)">
-                <mat-option *ngFor="let plan of plans()" [value]="plan.id">{{ plan.name }}</mat-option>
-              </mat-select>
-            </mat-form-field>
+                  <mat-form-field appearance="fill" style="width:100%; margin-top:12px;">
+                    <mat-label>Plan access</mat-label>
+                    <mat-select multiple [ngModel]="user.planIds" (ngModelChange)="setPlans(user, $event)">
+                      <mat-option *ngFor="let plan of plans()" [value]="plan.id">{{ plan.name }}</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="fill" style="width:100%;">
+                    <mat-label>New password</mat-label>
+                    <input matInput type="password" [(ngModel)]="passwordDrafts[user.id]">
+                  </mat-form-field>
+                </div>
+
+                <div class="user-actions">
+                  <button mat-stroked-button color="primary" (click)="resetPassword(user)">
+                    <mat-icon>password</mat-icon>
+                    Reset password
+                  </button>
+
+                  <button mat-stroked-button color="warn" (click)="deleteUser(user)">
+                    <mat-icon>delete</mat-icon>
+                    Delete user
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -104,6 +185,7 @@ export class AdminPageComponent {
   users = signal<AdminUser[]>([]);
   plans = signal<AccessiblePlan[]>([]);
   message = signal('');
+  passwordDrafts: Record<string, string> = {};
 
   draft = {
     email: '',
@@ -141,5 +223,34 @@ export class AdminPageComponent {
   async setPlans(user: AdminUser, planIds: string[]) {
     await this.admin.updateUserAccess(user.id, { isAdmin: user.isAdmin, planIds });
     await this.load();
+  }
+
+  async resetPassword(user: AdminUser) {
+    const nextPassword = (this.passwordDrafts[user.id] || '').trim();
+    if (!nextPassword) {
+      this.message.set(`Enter a new password for ${user.email}.`);
+      return;
+    }
+
+    try {
+      await this.admin.resetPassword(user.id, nextPassword);
+      this.passwordDrafts[user.id] = '';
+      this.message.set(`Password reset for ${user.email}.`);
+    } catch {
+      this.message.set(`Could not reset password for ${user.email}.`);
+    }
+  }
+
+  async deleteUser(user: AdminUser) {
+    if (!confirm(`Delete ${user.email}?`)) return;
+
+    try {
+      await this.admin.deleteUser(user.id);
+      delete this.passwordDrafts[user.id];
+      this.message.set(`Deleted ${user.email}.`);
+      await this.load();
+    } catch {
+      this.message.set(`Could not delete ${user.email}.`);
+    }
   }
 }

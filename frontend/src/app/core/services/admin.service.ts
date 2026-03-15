@@ -29,4 +29,12 @@ export class AdminService {
   async updateUserAccess(userId: string, payload: { isAdmin: boolean; planIds: string[] }): Promise<AdminUser> {
     return await firstValueFrom(this.http.put<AdminUser>(`/api/admin/users/${userId}/access`, payload));
   }
+
+  async resetPassword(userId: string, password: string): Promise<void> {
+    await firstValueFrom(this.http.post<void>(`/api/admin/users/${userId}/reset-password`, { password }));
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    await firstValueFrom(this.http.delete<void>(`/api/admin/users/${userId}`));
+  }
 }
