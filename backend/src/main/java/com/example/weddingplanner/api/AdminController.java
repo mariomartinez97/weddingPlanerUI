@@ -3,6 +3,7 @@ package com.example.weddingplanner.api;
 import com.example.weddingplanner.api.dto.AccessiblePlanDto;
 import com.example.weddingplanner.api.dto.AdminUserDto;
 import com.example.weddingplanner.api.dto.CreateAdminUserRequest;
+import com.example.weddingplanner.api.dto.ResetUserPasswordRequest;
 import com.example.weddingplanner.api.dto.UpdateUserAccessRequest;
 import com.example.weddingplanner.service.AdminService;
 import org.springframework.http.HttpStatus;
@@ -39,5 +40,17 @@ public class AdminController {
     @PutMapping("/users/{userId}/access")
     public AdminUserDto updateUserAccess(@PathVariable String userId, @RequestBody UpdateUserAccessRequest req) {
         return admin.updateUserAccess(userId, req);
+    }
+
+    @PostMapping("/users/{userId}/reset-password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resetPassword(@PathVariable String userId, @RequestBody ResetUserPasswordRequest req) {
+        admin.resetPassword(userId, req);
+    }
+
+    @DeleteMapping("/users/{userId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteUser(@PathVariable String userId) {
+        admin.deleteUser(userId);
     }
 }

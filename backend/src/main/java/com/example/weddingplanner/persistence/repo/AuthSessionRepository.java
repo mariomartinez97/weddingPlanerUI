@@ -10,4 +10,5 @@ public interface AuthSessionRepository extends JpaRepository<AuthSessionEntity, 
     Optional<AuthSessionEntity> findByToken(String token);
     void deleteByToken(String token);
     void deleteByExpiresAtBefore(OffsetDateTime timestamp);
+    void deleteAllByUserId(String userId);
 }

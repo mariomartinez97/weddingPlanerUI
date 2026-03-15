@@ -3,11 +3,13 @@ package com.example.weddingplanner.service;
 import com.example.weddingplanner.api.dto.AccessiblePlanDto;
 import com.example.weddingplanner.api.dto.AdminUserDto;
 import com.example.weddingplanner.api.dto.CreateAdminUserRequest;
+import com.example.weddingplanner.api.dto.ResetUserPasswordRequest;
 import com.example.weddingplanner.api.dto.UpdateUserAccessRequest;
 import com.example.weddingplanner.persistence.entity.AppUserEntity;
 import com.example.weddingplanner.persistence.entity.PlanEntity;
 import com.example.weddingplanner.persistence.entity.UserPlanAccessEntity;
 import com.example.weddingplanner.persistence.repo.AppUserRepository;
+import com.example.weddingplanner.persistence.repo.AuthSessionRepository;
 import com.example.weddingplanner.persistence.repo.PlanRepository;
 import com.example.weddingplanner.persistence.repo.UserPlanAccessRepository;
 import jakarta.transaction.Transactional;
@@ -32,14 +34,16 @@ public class AdminService {
     private final AppUserRepository users;
     private final PlanRepository plans;
     private final UserPlanAccessRepository accessRepo;
+    private final AuthSessionRepository sessions;
     private final IdService ids;
     private final AuthContextService auth;
     private final BCryptPasswordEncoder passwords = new BCryptPasswordEncoder();
 
-    public AdminService(AppUserRepository users, PlanRepository plans, UserPlanAccessRepository accessRepo, IdService ids, AuthContextService auth) {
+    public AdminService(AppUserRepository users, PlanRepository plans, UserPlanAccessRepository accessRepo, AuthSessionRepository sessions, IdService ids, AuthContextService auth) {
         this.users = users;
         this.plans = plans;
         this.accessRepo = accessRepo;
+        this.sessions = sessions;
         this.ids = ids;
         this.auth = auth;
     }
@@ -109,6 +113,30 @@ public class AdminService {
 
         replaceAccess(user.getId(), planIds);
         return toDto(user, planIds);
+    }
+
+    @Transactional
+    public void resetPassword(String userId, ResetUserPasswordRequest req) {
+        requireAdmin();
+        if (req == null || isBlank(req.password())) {
+            throw new ResponseStatusException(BAD_REQUEST, "Password is required");
+        }
+        AppUserEntity user = users.findById(userId).orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "User not found"));
+        user.setPasswordHash(passwords.encode(req.password()));
+        users.save(user);
+        sessions.deleteAllByUserId(userId);
+    }
+
+    @Transactional
+    public void deleteUser(String userId) {
+        requireAdmin();
+        if (auth.currentUserId().equals(userId)) {
+            throw new ResponseStatusException(BAD_REQUEST, "You cannot delete your own user");
+        }
+        AppUserEntity user = users.findById(userId).orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "User not found"));
+        sessions.deleteAllByUserId(userId);
+        accessRepo.deleteAll(accessRepo.findAllByUserId(userId));
+        users.delete(user);
     }
 
     private void replaceAccess(String userId, List<String> planIds) {
