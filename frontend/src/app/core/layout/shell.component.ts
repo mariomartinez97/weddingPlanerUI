@@ -93,16 +93,25 @@ import { NgFor, NgIf } from '@angular/common';
       background: transparent;
     }
 
+    .menu-footer {
+      margin-top: auto;
+      padding: 16px;
+      border-top: 1px solid rgba(0,0,0,0.06);
+      display: grid;
+      gap: 12px;
+    }
+
     .language-toggle {
-      z-index: 30;
       display: inline-flex;
       gap: 4px;
       padding: 4px;
       border-radius: 999px;
       background: rgba(255,255,255,0.88);
       border: 1px solid rgba(0,0,0,0.08);
-      box-shadow: 0 14px 30px rgba(15, 23, 42, 0.14);
-      backdrop-filter: blur(10px);
+    }
+
+    .language-toggle button {
+      flex: 1 1 0;
     }
 
     .language-toggle button.active {
@@ -135,24 +144,8 @@ import { NgFor, NgIf } from '@angular/common';
         display: none;
       }
 
-      .plan-field {
+        .plan-field {
         width: 100%;
-        order: 2;
-      }
-
-      .language-toggle {
-        width: 100%;
-        justify-content: center;
-        order: 3;
-      }
-
-      .language-toggle button {
-        flex: 1 1 0;
-      }
-
-      .toolbar-logout {
-        width: 100%;
-        order: 4;
       }
     }
   `],
@@ -164,12 +157,11 @@ import { NgFor, NgIf } from '@angular/common';
                  [mode]="isHandset() ? 'over' : 'side'"
                  [opened]="!isHandset()">
 
-      <div style="padding:16px 16px 10px;">
+      <div style="padding:16px 16px 10px; display:flex; flex-direction:column; height:100%;">
         <div class="brand">
           <div class="brand-badge">💍</div>
           <div>{{ 'appTitle' | t }}</div>
         </div>
-      </div>
 
       <mat-nav-list>
 
@@ -254,6 +246,22 @@ import { NgFor, NgIf } from '@angular/common';
         </a>
 
       </mat-nav-list>
+
+        <div class="menu-footer">
+          <div class="language-toggle" aria-label="Language toggle">
+            <button mat-stroked-button type="button" [class.active]="language() === 'en'" (click)="setLanguage('en')">
+              {{ 'shortEn' | t }}
+            </button>
+            <button mat-stroked-button type="button" [class.active]="language() === 'es'" (click)="setLanguage('es')">
+              {{ 'shortEs' | t }}
+            </button>
+          </div>
+
+          <button mat-stroked-button type="button" (click)="logout()">
+            Logout
+          </button>
+        </div>
+      </div>
     </mat-sidenav>
 
     <!-- CONTENT -->
@@ -272,18 +280,6 @@ import { NgFor, NgIf } from '@angular/common';
           </mat-select>
         </mat-form-field>
 
-        <div class="language-toggle" aria-label="Language toggle">
-          <button mat-stroked-button type="button" [class.active]="language() === 'en'" (click)="setLanguage('en')">
-            {{ 'shortEn' | t }}
-          </button>
-          <button mat-stroked-button type="button" [class.active]="language() === 'es'" (click)="setLanguage('es')">
-            {{ 'shortEs' | t }}
-          </button>
-        </div>
-
-        <button mat-button type="button" class="toolbar-logout" (click)="logout()">
-          Logout
-        </button>
       </mat-toolbar>
 
       <router-outlet></router-outlet>
