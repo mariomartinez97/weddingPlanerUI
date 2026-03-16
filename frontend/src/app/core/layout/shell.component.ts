@@ -43,9 +43,15 @@ import { NgFor, NgIf } from '@angular/common';
     .app-wrap { height: 100vh; }
 
     .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
       background: rgba(255,255,255,0.65);
       border-bottom: 1px solid rgba(0,0,0,0.06);
       backdrop-filter: blur(8px);
+      min-height: 72px;
+      padding: 10px 16px;
     }
 
     .brand {
@@ -103,6 +109,51 @@ import { NgFor, NgIf } from '@angular/common';
       background: rgba(110,170,255,0.18);
       border-color: rgba(59,130,246,0.18);
       font-weight: 700;
+    }
+
+    .toolbar-spacer {
+      flex: 1 1 auto;
+    }
+
+    .plan-field {
+      width: 240px;
+      margin-right: 0;
+    }
+
+    .toolbar-logout {
+      margin-left: 0;
+    }
+
+    @media (max-width: 780px) {
+      .toolbar {
+        align-items: stretch;
+        gap: 10px;
+        padding: 12px;
+      }
+
+      .toolbar-spacer {
+        display: none;
+      }
+
+      .plan-field {
+        width: 100%;
+        order: 2;
+      }
+
+      .language-toggle {
+        width: 100%;
+        justify-content: center;
+        order: 3;
+      }
+
+      .language-toggle button {
+        flex: 1 1 0;
+      }
+
+      .toolbar-logout {
+        width: 100%;
+        order: 4;
+      }
     }
   `],
   template: `
@@ -212,9 +263,9 @@ import { NgFor, NgIf } from '@angular/common';
           <mat-icon>menu</mat-icon>
         </button>
 
-        <span style="flex:1 1 auto"></span>
+        <span class="toolbar-spacer"></span>
 
-        <mat-form-field appearance="fill" style="width:240px; margin-right:12px;">
+        <mat-form-field appearance="fill" class="plan-field">
           <mat-label>Plan</mat-label>
           <mat-select [value]="activePlanId()" (selectionChange)="switchPlan($event.value)">
             <mat-option *ngFor="let plan of plans()" [value]="plan.id">{{ plan.name }}</mat-option>
@@ -230,7 +281,7 @@ import { NgFor, NgIf } from '@angular/common';
           </button>
         </div>
 
-        <button mat-button type="button" style="margin-left:12px;" (click)="logout()">
+        <button mat-button type="button" class="toolbar-logout" (click)="logout()">
           Logout
         </button>
       </mat-toolbar>

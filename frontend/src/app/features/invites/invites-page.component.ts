@@ -2,6 +2,7 @@ import { Component, inject, signal, computed } from '@angular/core';
 import { AsyncPipe, NgFor, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
@@ -33,6 +34,45 @@ type PartyRow = {
     MatButtonModule, MatIconModule, MatTableModule, MatChipsModule, MatMenuModule,
     MatInputModule, MatDialogModule, MatSelectModule, MatTooltipModule, TranslatePipe,
   ],
+  styles: [`
+    .invite-actions {
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .invite-mobile-list {
+      display:grid;
+      gap:14px;
+    }
+
+    .invite-mobile-card {
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 16px;
+      padding: 16px;
+      background: rgba(255,255,255,0.55);
+    }
+
+    .invite-mobile-row {
+      display:grid;
+      gap:10px;
+    }
+
+    .invite-mobile-companion {
+      padding: 10px 0;
+      border-top: 1px solid rgba(0,0,0,0.06);
+    }
+
+    .invite-mobile-companion:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .invite-mobile-select {
+      width: 100%;
+      margin-top: 8px;
+    }
+  `],
   template: `
   <div class="page">
     <div class="page-header">
@@ -41,7 +81,7 @@ type PartyRow = {
         <div class="page-subtitle">{{ 'invitesSubtitle' | t }}</div>
       </div>
 
-      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      <div class="invite-actions">
         <button mat-stroked-button (click)="openImport()">
           <mat-icon>upload</mat-icon>
           {{ 'uploadExcel' | t }}
@@ -87,7 +127,7 @@ type PartyRow = {
         </div>
       </div>
 
-      <div class="col-12 card" style="overflow:auto;">
+      <div class="col-12 card" style="overflow:auto;" *ngIf="!isHandset(); else mobileInvites">
         <table mat-table [dataSource]="partyRows()" class="mat-elevation-z0" style="min-width:920px;">
 
           <!-- Invite (Party) -->
@@ -181,6 +221,82 @@ type PartyRow = {
           {{ 'noInvitesYet' | t }}
         </div>
       </div>
+
+      <ng-template #mobileInvites>
+        <div class="col-12 card">
+          <div *ngIf="partyRows().length===0" style="padding:6px 0; opacity:.8;">
+            {{ 'noInvitesYet' | t }}
+          </div>
+
+          <div class="invite-mobile-list" *ngIf="partyRows().length>0">
+            <div class="invite-mobile-card" *ngFor="let row of partyRows()">
+              <div class="invite-mobile-row">
+                <div>
+                  <div style="font-weight:800; font-size:16px;">{{ row.party.inviteName }}</div>
+                  <div style="opacity:.75; font-size:12px;">{{ row.companions.length }} {{ 'companionCount' | t }}</div>
+                </div>
+
+                <div style="opacity:.85; font-size:13px;">
+                  <div>{{ row.party.contact?.email || '—' }}</div>
+                  <div *ngIf="row.party.contact?.phone">{{ row.party.contact?.phone }}</div>
+                </div>
+
+                <div class="inline-actions" style="display:flex; gap:8px; flex-wrap:wrap;">
+                  <button mat-stroked-button (click)="openInviteForm(undefined, row.party)">
+                    <mat-icon>edit</mat-icon>
+                    {{ 'editInvite' | t }}
+                  </button>
+                  <button mat-stroked-button (click)="addCompanionPrompt(row.party)">
+                    <mat-icon>person_add</mat-icon>
+                    {{ 'addCompanion' | t }}
+                  </button>
+                  <button mat-stroked-button color="warn" (click)="deleteInvite(row.party)">
+                    <mat-icon>delete</mat-icon>
+                    {{ 'deleteInvite' | t }}
+                  </button>
+                </div>
+              </div>
+
+              <div style="margin-top:14px;" *ngIf="row.companions.length===0">
+                <div style="opacity:.75;">{{ 'noCompanionsYet' | t }}</div>
+              </div>
+
+              <div style="margin-top:14px;" *ngIf="row.companions.length>0">
+                <div class="invite-mobile-companion" *ngFor="let c of row.companions">
+                  <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start;">
+                    <div>
+                      <div style="font-weight:700;">{{ c.fullName }}</div>
+                      <div style="opacity:.7; font-size:12px;">{{ c.mealChoice || '— meal' }}</div>
+                    </div>
+                    <button mat-icon-button [matMenuTriggerFor]="mobileMenu">
+                      <mat-icon>more_vert</mat-icon>
+                    </button>
+                    <mat-menu #mobileMenu="matMenu">
+                      <button mat-menu-item (click)="openInviteForm(c)">
+                        <mat-icon>edit</mat-icon>
+                        {{ 'editPerson' | t }}
+                      </button>
+                      <button mat-menu-item (click)="deletePerson(c)">
+                        <mat-icon>delete</mat-icon>
+                        {{ 'deletePerson' | t }}
+                      </button>
+                    </mat-menu>
+                  </div>
+
+                  <mat-form-field appearance="fill" class="invite-mobile-select">
+                    <mat-select [value]="c.rsvp" (selectionChange)="setRsvp(c, $event.value)">
+                      <mat-option value="PENDING">{{ 'pending' | t }}</mat-option>
+                      <mat-option value="YES">{{ 'yes' | t }}</mat-option>
+                      <mat-option value="NO">{{ 'no' | t }}</mat-option>
+                      <mat-option value="MAYBE">{{ 'maybe' | t }}</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ng-template>
     </div>
   </div>
   `,
@@ -189,6 +305,7 @@ export class InvitesPageComponent {
   readonly svc = inject(InvitesService);
   readonly i18n = inject(I18nService);
   private dialog = inject(MatDialog);
+  private bp = inject(BreakpointObserver);
   private store = toSignal(this.svc.storeObs$, {
     initialValue: this.svc.snapshot,
   });
@@ -197,10 +314,17 @@ export class InvitesPageComponent {
 
   q = signal('');
   filter = signal<'ALL' | RSVPStatus>('ALL');
+  handsetState = toSignal(this.bp.observe([Breakpoints.Handset]), {
+    initialValue: { matches: false, breakpoints: {} }
+  });
 
   constructor() {
     // Load data once when page mounts
     void this.reload();
+  }
+
+  isHandset() {
+    return this.handsetState()?.matches ?? false;
   }
 
   async reload() {
