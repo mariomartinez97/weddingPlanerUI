@@ -1,12 +1,12 @@
 package com.example.weddingplanner.service;
 
-import com.example.weddingplanner.api.dto.AccessiblePlanDto;
 import com.example.weddingplanner.api.dto.AdminUserDto;
 import com.example.weddingplanner.api.dto.CreateAdminUserRequest;
 import com.example.weddingplanner.api.dto.ResetUserPasswordRequest;
 import com.example.weddingplanner.api.dto.UpdateUserAccessRequest;
 import com.example.weddingplanner.persistence.entity.AppUserEntity;
 import com.example.weddingplanner.persistence.entity.PlanEntity;
+import com.example.weddingplanner.persistence.entity.PlanStatus;
 import com.example.weddingplanner.persistence.entity.UserPlanAccessEntity;
 import com.example.weddingplanner.persistence.repo.AppUserRepository;
 import com.example.weddingplanner.persistence.repo.AuthSessionRepository;
@@ -21,7 +21,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
@@ -62,14 +61,6 @@ public class AdminService {
                         planIdsByUser.getOrDefault(u.getId(), List.of())
                 ))
                 .sorted(java.util.Comparator.comparing(AdminUserDto::email, String.CASE_INSENSITIVE_ORDER))
-                .toList();
-    }
-
-    public List<AccessiblePlanDto> listPlans() {
-        requireAdmin();
-        return plans.findAll().stream()
-                .sorted(java.util.Comparator.comparing(PlanEntity::getName, String.CASE_INSENSITIVE_ORDER))
-                .map(p -> new AccessiblePlanDto(p.getId(), p.getName()))
                 .toList();
     }
 
@@ -158,9 +149,11 @@ public class AdminService {
     private void validatePlans(List<String> planIds) {
         if (planIds.isEmpty()) return;
         Set<String> requested = new HashSet<>(planIds);
-        Set<String> existing = plans.findAllById(requested).stream().map(PlanEntity::getId).collect(Collectors.toSet());
+        Set<String> existing = plans.findAllByIdInAndStatusOrderByNameAsc(requested, PlanStatus.ACTIVE).stream()
+                .map(PlanEntity::getId)
+                .collect(Collectors.toSet());
         if (!existing.containsAll(requested)) {
-            throw new ResponseStatusException(BAD_REQUEST, "One or more plans do not exist");
+            throw new ResponseStatusException(BAD_REQUEST, "One or more plans do not exist or are not active");
         }
     }
 

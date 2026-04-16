@@ -8,6 +8,7 @@ import com.example.weddingplanner.config.AuthPrincipal;
 import com.example.weddingplanner.persistence.entity.AppUserEntity;
 import com.example.weddingplanner.persistence.entity.AuthSessionEntity;
 import com.example.weddingplanner.persistence.entity.PlanEntity;
+import com.example.weddingplanner.persistence.entity.PlanStatus;
 import com.example.weddingplanner.persistence.entity.UserPlanAccessEntity;
 import com.example.weddingplanner.persistence.repo.AppUserRepository;
 import com.example.weddingplanner.persistence.repo.AuthSessionRepository;
@@ -89,6 +90,9 @@ public class AuthService {
         if (requiresPlan) {
             if (isBlank(planId)) throw new ResponseStatusException(UNAUTHORIZED, "Missing plan header");
             resolvedPlanId = planId.trim();
+            if (!plans.existsByIdAndStatus(resolvedPlanId, PlanStatus.ACTIVE)) {
+                throw new ResponseStatusException(UNAUTHORIZED, "Plan access denied");
+            }
             if (!accessRepo.existsByUserIdAndPlanId(user.getId(), resolvedPlanId)) {
                 throw new ResponseStatusException(UNAUTHORIZED, "Plan access denied");
             }
@@ -109,7 +113,7 @@ public class AuthService {
 
     private List<AccessiblePlanDto> accessiblePlans(String userId) {
         List<String> planIds = accessRepo.findAllByUserId(userId).stream().map(UserPlanAccessEntity::getPlanId).toList();
-        return plans.findAllByIdInOrderByNameAsc(planIds).stream()
+        return plans.findAllByIdInAndStatusOrderByNameAsc(planIds, PlanStatus.ACTIVE).stream()
                 .map(this::toPlanDto)
                 .toList();
     }

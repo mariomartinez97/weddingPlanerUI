@@ -33,7 +33,8 @@ public class AuthFilter extends OncePerRequestFilter {
         try {
             String token = request.getHeader("X-Auth-Token");
             String planId = request.getHeader("X-Plan-Id");
-            boolean requiresPlan = !request.getRequestURI().startsWith("/api/auth/");
+            String path = request.getRequestURI();
+            boolean requiresPlan = !path.startsWith("/api/auth/") && !path.startsWith("/api/admin/");
             RequestContext.set(authService.authenticate(token, planId, requiresPlan));
             filterChain.doFilter(request, response);
         } catch (ResponseStatusException ex) {

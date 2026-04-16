@@ -18,10 +18,14 @@ public class AuditService {
     }
 
     public void record(String action, String entityType, String entityId, String summary) {
+        recordForPlan(auth.currentPlanId(), action, entityType, entityId, summary);
+    }
+
+    public void recordForPlan(String planId, String action, String entityType, String entityId, String summary) {
         AuditLogEntity entry = new AuditLogEntity();
         entry.setId(ids.uid("audit"));
         entry.setUserId(auth.currentUserId());
-        entry.setPlanId(auth.currentPlanId());
+        entry.setPlanId(planId);
         entry.setAction(action);
         entry.setEntityType(entityType);
         entry.setEntityId(entityId);
