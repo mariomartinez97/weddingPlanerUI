@@ -75,6 +75,21 @@ export interface AccessiblePlan {
   name: string;
 }
 
+export type SubscriptionStatus = 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
+
+export interface AdminPlan {
+  id: string;
+  name: string;
+  status: SubscriptionStatus;
+  createdAt?: string;
+  updatedAt?: string;
+  deactivatedAt?: string;
+  archivedAt?: string;
+  purgeAfter?: string;
+  assignedUserIds: string[];
+  assignedUserCount: number;
+}
+
 export interface AuthUser {
   id: string;
   email: string;

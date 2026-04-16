@@ -31,6 +31,10 @@ export class AuthService {
     return this.session()?.plans ?? [];
   }
 
+  hasAccessiblePlans() {
+    return this.plans().length > 0;
+  }
+
   isAdmin() {
     return !!this.session()?.user?.isAdmin;
   }
@@ -39,11 +43,7 @@ export class AuthService {
     const session = await firstValueFrom(this.http.post<AuthSession>('/api/auth/login', payload));
     this.session.set(session);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-
-    const firstPlan = session.plans[0]?.id ?? null;
-    this.activePlanId.set(firstPlan);
-    if (firstPlan) localStorage.setItem(ACTIVE_PLAN_KEY, firstPlan);
-    else localStorage.removeItem(ACTIVE_PLAN_KEY);
+    this.applyActivePlan(session.plans, null);
   }
 
   async refresh() {
@@ -54,13 +54,7 @@ export class AuthService {
       this.session.set(session);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
 
-      const active = this.activePlanId();
-      const stillValid = session.plans.some(p => p.id === active);
-      if (!stillValid) {
-        const nextPlan = session.plans[0]?.id ?? null;
-        this.activePlanId.set(nextPlan);
-        if (nextPlan) localStorage.setItem(ACTIVE_PLAN_KEY, nextPlan);
-      }
+      this.applyActivePlan(session.plans, this.activePlanId());
     } catch {
       this.clearLocal();
     }
@@ -77,6 +71,7 @@ export class AuthService {
   }
 
   setActivePlan(planId: string) {
+    if (!this.plans().some(plan => plan.id === planId)) return;
     this.activePlanId.set(planId);
     localStorage.setItem(ACTIVE_PLAN_KEY, planId);
   }
@@ -99,5 +94,15 @@ export class AuthService {
 
   private readActivePlan(): string | null {
     return localStorage.getItem(ACTIVE_PLAN_KEY);
+  }
+
+  private applyActivePlan(plans: AccessiblePlan[], preferredPlanId: string | null) {
+    const nextPlanId = plans.some(plan => plan.id === preferredPlanId)
+      ? preferredPlanId
+      : plans[0]?.id ?? null;
+
+    this.activePlanId.set(nextPlanId);
+    if (nextPlanId) localStorage.setItem(ACTIVE_PLAN_KEY, nextPlanId);
+    else localStorage.removeItem(ACTIVE_PLAN_KEY);
   }
 }

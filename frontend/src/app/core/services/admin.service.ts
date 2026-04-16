@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 
-import { AccessiblePlan, AdminUser } from '../models';
+import { AdminPlan, AdminUser } from '../models';
 
 @Injectable({ providedIn: 'root' })
 export class AdminService {
@@ -12,8 +12,22 @@ export class AdminService {
     return await firstValueFrom(this.http.get<AdminUser[]>('/api/admin/users'));
   }
 
-  async listPlans(): Promise<AccessiblePlan[]> {
-    return await firstValueFrom(this.http.get<AccessiblePlan[]>('/api/admin/plans'));
+  async listPlans(includeInactive = false): Promise<AdminPlan[]> {
+    return await firstValueFrom(this.http.get<AdminPlan[]>('/api/admin/plans', {
+      params: { includeInactive: String(includeInactive) },
+    }));
+  }
+
+  async getPlan(planId: string): Promise<AdminPlan> {
+    return await firstValueFrom(this.http.get<AdminPlan>(`/api/admin/plans/${planId}`));
+  }
+
+  async createPlan(payload: { name: string; assignedUserIds: string[] }): Promise<AdminPlan> {
+    return await firstValueFrom(this.http.post<AdminPlan>('/api/admin/plans', payload));
+  }
+
+  async updatePlan(planId: string, payload: { name: string; status: string; assignedUserIds: string[] }): Promise<AdminPlan> {
+    return await firstValueFrom(this.http.put<AdminPlan>(`/api/admin/plans/${planId}`, payload));
   }
 
   async createUser(payload: {

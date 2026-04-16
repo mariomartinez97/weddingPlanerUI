@@ -129,6 +129,12 @@ import { NgFor, NgIf } from '@angular/common';
       margin-right: 0;
     }
 
+    .toolbar-note {
+      font-size: 13px;
+      opacity: .78;
+      padding: 0 4px;
+    }
+
     .toolbar-logout {
       margin-left: 0;
     }
@@ -273,12 +279,20 @@ import { NgFor, NgIf } from '@angular/common';
 
         <span class="toolbar-spacer"></span>
 
-        <mat-form-field appearance="fill" class="plan-field">
-          <mat-label>Plan</mat-label>
+        <mat-form-field appearance="fill" class="plan-field" *ngIf="plans().length > 0">
+          <mat-label>Subscription</mat-label>
           <mat-select [value]="activePlanId()" (selectionChange)="switchPlan($event.value)">
             <mat-option *ngFor="let plan of plans()" [value]="plan.id">{{ plan.name }}</mat-option>
           </mat-select>
         </mat-form-field>
+
+        <div class="toolbar-note" *ngIf="plans().length === 0 && isAdmin()">
+          No subscriptions assigned. Use Admin to create or manage subscriptions.
+        </div>
+
+        <div class="toolbar-note" *ngIf="plans().length === 0 && !isAdmin()">
+          No subscriptions assigned to this account.
+        </div>
 
       </mat-toolbar>
 
@@ -325,6 +339,7 @@ export class ShellComponent {
   }
 
   async switchPlan(planId: string) {
+    if (!planId) return;
     this.auth.setActivePlan(planId);
     await this.invites.refresh();
     await this.budget.refresh();
