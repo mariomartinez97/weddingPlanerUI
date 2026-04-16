@@ -142,9 +142,19 @@ public class AdminPlanService {
 
     private void replaceAssignedUsers(String planId, List<String> userIds) {
         List<UserPlanAccessEntity> current = accessRepo.findAllByPlanId(planId);
-        if (!current.isEmpty()) accessRepo.deleteAll(current);
+        Set<String> desired = new HashSet<>(userIds);
+        Map<String, UserPlanAccessEntity> currentByUserId = current.stream()
+                .collect(Collectors.toMap(UserPlanAccessEntity::getUserId, access -> access, (left, right) -> left));
 
-        for (String userId : userIds) {
+        List<UserPlanAccessEntity> toDelete = current.stream()
+                .filter(access -> !desired.contains(access.getUserId()))
+                .toList();
+        if (!toDelete.isEmpty()) {
+            accessRepo.deleteAll(toDelete);
+        }
+
+        for (String userId : desired) {
+            if (currentByUserId.containsKey(userId)) continue;
             UserPlanAccessEntity access = new UserPlanAccessEntity();
             access.setId(ids.uid("acc"));
             access.setUserId(userId);
