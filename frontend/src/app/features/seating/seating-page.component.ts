@@ -10,6 +10,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { TranslatePipe } from '../../core/pipes/translate.pipe';
 
 import { InvitesService } from '../../core/services/invites.service';
+import { I18nService } from '../../core/services/i18n.service';
 import { SeatingService } from '../../core/services/seating.service';
 import { TableDef, Invitee } from '../../core/models';
 import { TableEditorDialogComponent } from './table-editor-dialog.component';
@@ -32,8 +33,62 @@ import { TableEditorDialogComponent } from './table-editor-dialog.component';
       background: rgba(255,255,255,0.06);
       border: 1px solid rgba(255,255,255,0.12);
       margin-bottom: 10px;
-      cursor: grab;
       user-select: none;
+      cursor: pointer;
+      transition: border-color .18s ease, background .18s ease;
+    }
+
+    .guest-card.selected {
+      border-color: rgba(255,255,255,0.28);
+      background: rgba(255,255,255,0.1);
+    }
+
+    .guest-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .guest-copy {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .drag-handle {
+      cursor: grab;
+      opacity: .82;
+      flex: 0 0 auto;
+    }
+
+    .table-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.16);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .quick-assign {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .quick-assign-row {
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      flex-wrap:wrap;
+    }
+
+    .quick-assign-field {
+      flex: 1 1 160px;
     }
 
     .table-card {
@@ -105,9 +160,63 @@ import { TableEditorDialogComponent } from './table-editor-dialog.component';
           class="dropzone"
           (cdkDropListDropped)="dropToPool($event)"
         >
-          <div *ngFor="let g of unassignedYesFiltered()" class="guest-card" cdkDrag [cdkDragData]="g">
-            <div style="font-weight:700">{{g.fullName}}</div>
-            <div class="small">{{inviteName(g.partyId)}}</div>
+          <div
+            *ngFor="let g of unassignedYesFiltered()"
+            class="guest-card"
+            [class.selected]="quickAssignGuestId() === g.id"
+            cdkDrag
+            [cdkDragData]="g"
+            (click)="toggleQuickAssign(g)"
+          >
+            <div class="guest-top">
+              <div class="guest-copy">
+                <div style="font-weight:700">{{g.fullName}}</div>
+                <div class="small">{{inviteName(g.partyId)}}</div>
+              </div>
+
+              <button
+                type="button"
+                mat-icon-button
+                class="drag-handle"
+                cdkDragHandle
+                (click)="$event.stopPropagation()"
+                [attr.aria-label]="'Drag ' + g.fullName"
+              >
+                <mat-icon>drag_indicator</mat-icon>
+              </button>
+            </div>
+
+            <div *ngIf="quickAssignGuestId() === g.id" class="quick-assign" (click)="$event.stopPropagation()">
+              <div class="small" style="margin-bottom:8px;">
+                {{ 'clickAssignHint' | t }}
+              </div>
+
+              <ng-container *ngIf="tables().length > 0; else noTablesToAssign">
+                <div class="quick-assign-row">
+                  <mat-form-field appearance="fill" class="quick-assign-field">
+                    <mat-label>{{ 'tableNumber' | t }}</mat-label>
+                    <input
+                      matInput
+                      type="number"
+                      min="1"
+                      [ngModel]="quickAssignTableNumber()"
+                      (ngModelChange)="quickAssignTableNumber.set(($event ?? '').toString())"
+                      (keydown.enter)="assignSelectedGuestByNumber(g); $event.preventDefault()"
+                    >
+                  </mat-form-field>
+
+                  <button mat-flat-button color="primary" (click)="assignSelectedGuestByNumber(g)">
+                    {{ 'assignTable' | t }}
+                  </button>
+                </div>
+
+                <div class="small">{{ tableNumberRangeLabel() }}</div>
+              </ng-container>
+
+              <ng-template #noTablesToAssign>
+                <div class="small">{{ 'noTablesDefined' | t }}</div>
+              </ng-template>
+            </div>
           </div>
 
           <div *ngIf="unassignedYesFiltered().length===0" class="small" style="padding:8px; opacity:.8;">
@@ -132,7 +241,10 @@ import { TableEditorDialogComponent } from './table-editor-dialog.component';
           <div class="col-4" *ngFor="let t of tables()">
             <div class="table-card">
               <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-                <div style="font-weight:800">{{t.name}}</div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span class="table-number">{{ tableNumber(t.id) }}</span>
+                  <div style="font-weight:800">{{t.name}}</div>
+                </div>
                 <div class="small">{{tableGuests(t.id).length}} / {{t.seats}}</div>
               </div>
 
@@ -145,9 +257,67 @@ import { TableEditorDialogComponent } from './table-editor-dialog.component';
                 [cdkDropListData]="tableGuests(t.id)"
                 (cdkDropListDropped)="dropToTable($event, t)"
               >
-                <div *ngFor="let g of tableGuests(t.id)" class="guest-card" cdkDrag [cdkDragData]="g">
-                  <div style="font-weight:700">{{g.fullName}}</div>
-                  <div class="small">{{inviteName(g.partyId)}}</div>
+                <div
+                  *ngFor="let g of tableGuests(t.id)"
+                  class="guest-card"
+                  [class.selected]="quickAssignGuestId() === g.id"
+                  cdkDrag
+                  [cdkDragData]="g"
+                  (click)="toggleQuickAssign(g)"
+                >
+                  <div class="guest-top">
+                    <div class="guest-copy">
+                      <div style="font-weight:700">{{g.fullName}}</div>
+                      <div class="small">{{inviteName(g.partyId)}}</div>
+                    </div>
+
+                    <button
+                      type="button"
+                      mat-icon-button
+                      class="drag-handle"
+                      cdkDragHandle
+                      (click)="$event.stopPropagation()"
+                      [attr.aria-label]="'Drag ' + g.fullName"
+                    >
+                      <mat-icon>drag_indicator</mat-icon>
+                    </button>
+                  </div>
+
+                  <div *ngIf="quickAssignGuestId() === g.id" class="quick-assign" (click)="$event.stopPropagation()">
+                    <div class="small" style="margin-bottom:8px;">
+                      {{ 'clickAssignHint' | t }}
+                    </div>
+
+                    <ng-container *ngIf="tables().length > 0; else noTablesForAssignedGuest">
+                      <div class="quick-assign-row">
+                        <mat-form-field appearance="fill" class="quick-assign-field">
+                          <mat-label>{{ 'tableNumber' | t }}</mat-label>
+                          <input
+                            matInput
+                            type="number"
+                            min="1"
+                            [ngModel]="quickAssignTableNumber()"
+                            (ngModelChange)="quickAssignTableNumber.set(($event ?? '').toString())"
+                            (keydown.enter)="assignSelectedGuestByNumber(g); $event.preventDefault()"
+                          >
+                        </mat-form-field>
+
+                        <button mat-flat-button color="primary" (click)="assignSelectedGuestByNumber(g)">
+                          {{ 'assignTable' | t }}
+                        </button>
+
+                        <button mat-stroked-button (click)="unassignGuest(g.id)">
+                          {{ 'removeFromTable' | t }}
+                        </button>
+                      </div>
+
+                      <div class="small">{{ tableNumberRangeLabel() }}</div>
+                    </ng-container>
+
+                    <ng-template #noTablesForAssignedGuest>
+                      <div class="small">{{ 'noTablesDefined' | t }}</div>
+                    </ng-template>
+                  </div>
                 </div>
 
                 <div *ngIf="tableGuests(t.id).length===0" class="small" style="padding:6px; opacity:.8;">
@@ -175,12 +345,15 @@ import { TableEditorDialogComponent } from './table-editor-dialog.component';
 })
 export class SeatingPageComponent {
   private invites = inject(InvitesService);
+  private i18n = inject(I18nService);
   private seating = inject(SeatingService);
   private dialog = inject(MatDialog);
   private invitesStore = toSignal(this.invites.storeObs$, { initialValue: this.invites.snapshot });
   private seatingStore = toSignal(this.seating.storeObs$, { initialValue: this.seating.snapshot });
 
   q = signal('');
+  quickAssignGuestId = signal<string | null>(null);
+  quickAssignTableNumber = signal('');
 
   yesPool = computed(() => this.invitesStore().invitees.filter(i => i.rsvp === 'YES'));
   tables = computed(() => this.seatingStore().tables);
@@ -222,21 +395,77 @@ export class SeatingPageComponent {
       .filter((x): x is Invitee => !!x);
   }
 
+  tableNumber(tableId: string): number {
+    return this.tables().findIndex(t => t.id === tableId) + 1;
+  }
+
+  tableNumberRangeLabel(): string {
+    return `1 - ${this.tables().length}`;
+  }
+
+  currentTableNumber(inviteeId: string): string {
+    const assignment = this.assignments().find(a => a.inviteeId === inviteeId);
+    if (!assignment) return '';
+
+    const number = this.tableNumber(assignment.tableId);
+    return number > 0 ? String(number) : '';
+  }
+
+  toggleQuickAssign(guest: Invitee) {
+    if (this.quickAssignGuestId() === guest.id) {
+      this.closeQuickAssign();
+      return;
+    }
+
+    this.quickAssignGuestId.set(guest.id);
+    this.quickAssignTableNumber.set(this.currentTableNumber(guest.id));
+  }
+
+  closeQuickAssign() {
+    this.quickAssignGuestId.set(null);
+    this.quickAssignTableNumber.set('');
+  }
+
+  assignGuestToTable(guest: Invitee, table: TableDef): boolean {
+    const current = this.tableGuests(table.id);
+    if (current.length >= table.seats && !current.some(g => g.id === guest.id)) {
+      alert(this.i18n.t('tableFullMessage'));
+      return false;
+    }
+
+    this.seating.assign(guest.id, table.id);
+    this.closeQuickAssign();
+    return true;
+  }
+
+  assignSelectedGuestByNumber(guest: Invitee) {
+    const tableNumber = Number(this.quickAssignTableNumber().trim());
+    if (!Number.isInteger(tableNumber) || tableNumber < 1 || tableNumber > this.tables().length) {
+      alert(this.i18n.t('invalidTableNumber'));
+      return;
+    }
+
+    const table = this.tables()[tableNumber - 1];
+    if (!table) return;
+
+    this.assignGuestToTable(guest, table);
+  }
+
+  unassignGuest(inviteeId: string) {
+    this.seating.unassign(inviteeId);
+    this.closeQuickAssign();
+  }
+
   dropToTable(event: CdkDragDrop<Invitee[]>, t: TableDef) {
     const guest: Invitee | undefined = (event.item.data as Invitee | undefined);
     if (!guest) return;
-
-    const current = this.tableGuests(t.id);
-    // capacity check
-    if (current.length >= t.seats && !current.some(g => g.id === guest.id)) return;
-
-    this.seating.assign(guest.id, t.id);
+    this.assignGuestToTable(guest, t);
   }
 
   dropToPool(event: CdkDragDrop<Invitee[]>) {
     const guest: Invitee | undefined = (event.item.data as Invitee | undefined);
     if (!guest) return;
-    this.seating.unassign(guest.id);
+    this.unassignGuest(guest.id);
   }
 
   openTables() {
