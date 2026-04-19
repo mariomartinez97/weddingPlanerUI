@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { NgIf, NgFor } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
@@ -163,7 +163,7 @@ import { TableEditorDialogComponent } from './table-editor-dialog.component';
           <div
             *ngFor="let g of unassignedYesFiltered()"
             class="guest-card"
-            [class.selected]="quickAssignGuestId() === g.id"
+            [class.selected]="quickAssignGuestId() === g.id && !isAssigned(g.id)"
             cdkDrag
             [cdkDragData]="g"
             (click)="toggleQuickAssign(g)"
@@ -186,7 +186,7 @@ import { TableEditorDialogComponent } from './table-editor-dialog.component';
               </button>
             </div>
 
-            <div *ngIf="quickAssignGuestId() === g.id" class="quick-assign" (click)="$event.stopPropagation()">
+            <div *ngIf="quickAssignGuestId() === g.id && !isAssigned(g.id)" class="quick-assign" (click)="$event.stopPropagation()">
               <div class="small" style="margin-bottom:8px;">
                 {{ 'clickAssignHint' | t }}
               </div>
@@ -327,6 +327,14 @@ export class SeatingPageComponent {
     'pool-dropzone',
     ...this.tables().map(t => `table-dropzone-${t.id}`),
   ]);
+
+  constructor() {
+    effect(() => {
+      const guestId = this.quickAssignGuestId();
+      if (!guestId) return;
+      if (this.isAssigned(guestId)) this.closeQuickAssign();
+    });
+  }
 
   inviteName(partyId: string): string {
     return this.invitesStore().parties.find(p => p.id === partyId)?.inviteName ?? '—';
