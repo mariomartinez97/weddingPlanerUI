@@ -260,10 +260,8 @@ import { TableEditorDialogComponent } from './table-editor-dialog.component';
                 <div
                   *ngFor="let g of tableGuests(t.id)"
                   class="guest-card"
-                  [class.selected]="quickAssignGuestId() === g.id"
                   cdkDrag
                   [cdkDragData]="g"
-                  (click)="toggleQuickAssign(g)"
                 >
                   <div class="guest-top">
                     <div class="guest-copy">
@@ -278,46 +276,10 @@ import { TableEditorDialogComponent } from './table-editor-dialog.component';
                       cdkDragHandle
                       (click)="$event.stopPropagation()"
                       [attr.aria-label]="'Drag ' + g.fullName"
-                    >
-                      <mat-icon>drag_indicator</mat-icon>
-                    </button>
-                  </div>
-
-                  <div *ngIf="quickAssignGuestId() === g.id" class="quick-assign" (click)="$event.stopPropagation()">
-                    <div class="small" style="margin-bottom:8px;">
-                      {{ 'clickAssignHint' | t }}
+                      >
+                        <mat-icon>drag_indicator</mat-icon>
+                      </button>
                     </div>
-
-                    <ng-container *ngIf="tables().length > 0; else noTablesForAssignedGuest">
-                      <div class="quick-assign-row">
-                        <mat-form-field appearance="fill" class="quick-assign-field">
-                          <mat-label>{{ 'tableNumber' | t }}</mat-label>
-                          <input
-                            matInput
-                            type="number"
-                            min="1"
-                            [ngModel]="quickAssignTableNumber()"
-                            (ngModelChange)="quickAssignTableNumber.set(($event ?? '').toString())"
-                            (keydown.enter)="assignSelectedGuestByNumber(g); $event.preventDefault()"
-                          >
-                        </mat-form-field>
-
-                        <button mat-flat-button color="primary" (click)="assignSelectedGuestByNumber(g)">
-                          {{ 'assignTable' | t }}
-                        </button>
-
-                        <button mat-stroked-button (click)="unassignGuest(g.id)">
-                          {{ 'removeFromTable' | t }}
-                        </button>
-                      </div>
-
-                      <div class="small">{{ tableNumberRangeLabel() }}</div>
-                    </ng-container>
-
-                    <ng-template #noTablesForAssignedGuest>
-                      <div class="small">{{ 'noTablesDefined' | t }}</div>
-                    </ng-template>
-                  </div>
                 </div>
 
                 <div *ngIf="tableGuests(t.id).length===0" class="small" style="padding:6px; opacity:.8;">
