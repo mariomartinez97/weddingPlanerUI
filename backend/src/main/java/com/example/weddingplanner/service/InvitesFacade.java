@@ -30,20 +30,16 @@ public class InvitesFacade {
     }
 
     public List<InviteDto> listAll() {
-        return invites.findAllByPlanId(auth.currentPlanId()).stream()
-                .sorted(Comparator.comparing(InviteEntity::getInviteName, String.CASE_INSENSITIVE_ORDER))
-                .map(this::toDto)
-                .toList();
+        return listAllForPlan(auth.currentPlanId());
     }
 
     public List<InviteDto> searchByName(String q) {
-        if (isBlank(q)) return listAll();
-        String needle = q.trim().toLowerCase();
+        return searchByNameForPlan(auth.currentPlanId(), q);
+    }
 
-        return invites.findAllByPlanId(auth.currentPlanId()).stream()
-                .filter(inv -> matchesInvite(inv, needle) || matchesCompanion(inv, needle))
-                .sorted(Comparator.comparing(InviteEntity::getInviteName, String.CASE_INSENSITIVE_ORDER))
-                .map(this::toDto)
+    public List<PublicInviteDto> searchPublicByName(String planId, String q) {
+        return searchInvites(planId, q).stream()
+                .map(this::toPublicDto)
                 .toList();
     }
 
@@ -167,32 +163,23 @@ public class InvitesFacade {
 
     @Transactional
     public List<InviteeDto> patchInviteRsvp(String inviteId, String rsvp, boolean includeCompanions) {
-        InviteEntity inv = invites.findByIdAndPlanId(inviteId, auth.currentPlanId()).orElseThrow();
-        List<InviteeEntity> companions = invitees.findByInvite_Id(inviteId);
-        if (companions.isEmpty()) return List.of();
+        return patchInviteRsvpForPlan(auth.currentPlanId(), auth.currentUserId(), inviteId, rsvp, includeCompanions);
+    }
 
-        String normalized = normalizeRsvp(rsvp);
-        if (includeCompanions) {
-            for (InviteeEntity c : companions) {
-                c.setRsvp(normalized);
-                invitees.save(c);
-            }
-            return companions.stream()
-                    .sorted(Comparator.comparing(InviteeEntity::getFullName, String.CASE_INSENSITIVE_ORDER))
-                    .map(this::toDto)
-                    .toList();
-        }
+    @Transactional
+    public List<PublicInviteeDto> publicPatchInviteRsvp(String planId, String actorUserId, String inviteId, String rsvp, boolean includeCompanions) {
+        return patchInviteRsvpForPlan(planId, actorUserId, inviteId, rsvp, includeCompanions).stream()
+                .map(i -> new PublicInviteeDto(i.id(), i.fullName(), i.rsvp()))
+                .toList();
+    }
 
-        // "one invite" = primary person for this invite. Prefer exact name match with inviteName.
-        InviteeEntity primary = companions.stream()
-                .filter(c -> safeEq(c.getFullName(), inv.getInviteName()))
-                .findFirst()
-                .orElse(companions.getFirst());
-
-        primary.setRsvp(normalized);
-        invitees.save(primary);
-        audit.record("update", "invite_rsvp", inviteId, "Patched RSVP for invite " + inv.getInviteName());
-        return List.of(toDto(primary));
+    @Transactional
+    public PublicInviteeDto publicPatchInviteeRsvp(String planId, String actorUserId, String inviteeId, String rsvp) {
+        InviteeEntity e = invitees.findByIdAndInvite_PlanId(inviteeId, planId).orElseThrow();
+        e.setRsvp(normalizeRsvp(rsvp));
+        invitees.save(e);
+        audit.recordForActor(actorUserId, planId, "update", "public_invitee_rsvp", e.getId(), "Updated RSVP for " + e.getFullName() + " via public RSVP");
+        return toPublicDto(e);
     }
 
     @Transactional
@@ -227,6 +214,76 @@ public class InvitesFacade {
                 e.getMealChoice(),
                 e.getNotes()
         );
+    }
+
+    private List<InviteDto> listAllForPlan(String planId) {
+        return invites.findAllByPlanId(planId).stream()
+                .sorted(Comparator.comparing(InviteEntity::getInviteName, String.CASE_INSENSITIVE_ORDER))
+                .map(this::toDto)
+                .toList();
+    }
+
+    private List<InviteDto> searchByNameForPlan(String planId, String q) {
+        return searchInvites(planId, q).stream()
+                .map(this::toDto)
+                .toList();
+    }
+
+    private List<InviteEntity> searchInvites(String planId, String q) {
+        if (isBlank(q)) {
+            return invites.findAllByPlanId(planId).stream()
+                    .sorted(Comparator.comparing(InviteEntity::getInviteName, String.CASE_INSENSITIVE_ORDER))
+                    .toList();
+        }
+
+        String needle = q.trim().toLowerCase();
+        return invites.findAllByPlanId(planId).stream()
+                .filter(inv -> matchesInvite(inv, needle) || matchesCompanion(inv, needle))
+                .sorted(Comparator.comparing(InviteEntity::getInviteName, String.CASE_INSENSITIVE_ORDER))
+                .toList();
+    }
+
+    private List<InviteeDto> patchInviteRsvpForPlan(String planId, String actorUserId, String inviteId, String rsvp, boolean includeCompanions) {
+        InviteEntity inv = invites.findByIdAndPlanId(inviteId, planId).orElseThrow();
+        List<InviteeEntity> companions = invitees.findByInvite_Id(inviteId);
+        if (companions.isEmpty()) return List.of();
+
+        String normalized = normalizeRsvp(rsvp);
+        if (includeCompanions) {
+            for (InviteeEntity c : companions) {
+                c.setRsvp(normalized);
+                invitees.save(c);
+            }
+            audit.recordForActor(actorUserId, planId, "update", "invite_rsvp", inviteId, "Patched RSVP for invite " + inv.getInviteName());
+            return companions.stream()
+                    .sorted(Comparator.comparing(InviteeEntity::getFullName, String.CASE_INSENSITIVE_ORDER))
+                    .map(this::toDto)
+                    .toList();
+        }
+
+        // "one invite" = primary person for this invite. Prefer exact name match with inviteName.
+        InviteeEntity primary = companions.stream()
+                .filter(c -> safeEq(c.getFullName(), inv.getInviteName()))
+                .findFirst()
+                .orElse(companions.getFirst());
+
+        primary.setRsvp(normalized);
+        invitees.save(primary);
+        audit.recordForActor(actorUserId, planId, "update", "invite_rsvp", inviteId, "Patched RSVP for invite " + inv.getInviteName());
+        return List.of(toDto(primary));
+    }
+
+    private PublicInviteDto toPublicDto(InviteEntity inv) {
+        List<PublicInviteeDto> people = (inv.getInvitees() == null ? List.<InviteeEntity>of() : inv.getInvitees())
+                .stream()
+                .sorted(Comparator.comparing(InviteeEntity::getFullName, String.CASE_INSENSITIVE_ORDER))
+                .map(this::toPublicDto)
+                .toList();
+        return new PublicInviteDto(inv.getId(), inv.getInviteName(), people);
+    }
+
+    private PublicInviteeDto toPublicDto(InviteeEntity e) {
+        return new PublicInviteeDto(e.getId(), e.getFullName(), e.getRsvp());
     }
 
     private String normalizeRsvp(String rsvp) {

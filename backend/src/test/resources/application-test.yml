@@ -17,3 +17,7 @@ app:
     admin-email: bootstrap-admin@example.com
     admin-password: bootstrap-password
   plan-archive-retention-days: 30
+  public-rsvp:
+    token: test-public-rsvp-token
+    actor-email: public-rsvp-test@system.local
+    actor-display-name: Public RSVP Test

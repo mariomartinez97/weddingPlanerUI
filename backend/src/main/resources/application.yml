@@ -17,3 +17,7 @@ spring:
 
 app:
   plan-archive-retention-days: 90
+  public-rsvp:
+    token: ${PUBLIC_RSVP_TOKEN:}
+    actor-email: ${PUBLIC_RSVP_ACTOR_EMAIL:public-rsvp@system.local}
+    actor-display-name: ${PUBLIC_RSVP_ACTOR_NAME:Public RSVP}
