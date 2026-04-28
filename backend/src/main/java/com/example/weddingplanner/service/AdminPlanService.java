@@ -3,6 +3,7 @@ package com.example.weddingplanner.service;
 import com.example.weddingplanner.api.dto.AdminPlanDto;
 import com.example.weddingplanner.api.dto.CreatePlanRequest;
 import com.example.weddingplanner.api.dto.UpdatePlanRequest;
+import com.example.weddingplanner.persistence.entity.PlanAccessRole;
 import com.example.weddingplanner.persistence.entity.PlanEntity;
 import com.example.weddingplanner.persistence.entity.PlanStatus;
 import com.example.weddingplanner.persistence.entity.UserPlanAccessEntity;
@@ -67,7 +68,8 @@ public class AdminPlanService {
     public AdminPlanDto getPlan(String planId) {
         requireAdmin();
         PlanEntity plan = plans.findById(planId).orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Plan not found"));
-        return toDto(plan, assignedUserIdsByPlanId(List.of(plan.getId())).getOrDefault(plan.getId(), List.of()));
+        Map<String, List<UserPlanAccessEntity>> accessByPlan = accessByPlanId(List.of(plan.getId()));
+        return toDto(plan, accessByPlan.getOrDefault(plan.getId(), List.of()));
     }
 
     @Transactional
@@ -93,7 +95,7 @@ public class AdminPlanService {
 
         replaceAssignedUsers(plan.getId(), assignedUserIds);
         audit.recordForPlan(plan.getId(), "create", "plan", plan.getId(), "Created plan " + plan.getName());
-        return toDto(plan, assignedUserIds);
+        return toDto(plan, accessRepo.findAllByPlanId(plan.getId()));
     }
 
     @Transactional
@@ -114,28 +116,27 @@ public class AdminPlanService {
 
         replaceAssignedUsers(plan.getId(), assignedUserIds);
         audit.recordForPlan(plan.getId(), "update", "plan", plan.getId(), "Updated plan " + plan.getName() + " to " + plan.getStatus().name());
-        return toDto(plan, assignedUserIds);
+        return toDto(plan, accessRepo.findAllByPlanId(plan.getId()));
     }
 
     private List<AdminPlanDto> mapPlans(List<PlanEntity> rows) {
-        Map<String, List<String>> assignedByPlan = assignedUserIdsByPlanId(rows.stream().map(PlanEntity::getId).toList());
+        Map<String, List<UserPlanAccessEntity>> accessByPlan = accessByPlanId(rows.stream().map(PlanEntity::getId).toList());
         return rows.stream()
-                .map(plan -> toDto(plan, assignedByPlan.getOrDefault(plan.getId(), List.of())))
+                .map(plan -> toDto(plan, accessByPlan.getOrDefault(plan.getId(), List.of())))
                 .toList();
     }
 
-    private Map<String, List<String>> assignedUserIdsByPlanId(List<String> planIds) {
+    private Map<String, List<UserPlanAccessEntity>> accessByPlanId(List<String> planIds) {
         if (planIds.isEmpty()) return Map.of();
 
-        Map<String, List<String>> assignedByPlan = accessRepo.findAllByPlanIdIn(planIds).stream()
-                .collect(Collectors.groupingBy(
-                        UserPlanAccessEntity::getPlanId,
-                        Collectors.mapping(UserPlanAccessEntity::getUserId, Collectors.toList())
-                ));
+        Map<String, List<UserPlanAccessEntity>> assignedByPlan = accessRepo.findAllByPlanIdIn(planIds).stream()
+                .collect(Collectors.groupingBy(UserPlanAccessEntity::getPlanId));
 
-        Map<String, List<String>> sorted = new HashMap<>();
-        for (Map.Entry<String, List<String>> entry : assignedByPlan.entrySet()) {
-            sorted.put(entry.getKey(), entry.getValue().stream().distinct().sorted().toList());
+        Map<String, List<UserPlanAccessEntity>> sorted = new HashMap<>();
+        for (Map.Entry<String, List<UserPlanAccessEntity>> entry : assignedByPlan.entrySet()) {
+            sorted.put(entry.getKey(), entry.getValue().stream()
+                    .sorted(java.util.Comparator.comparing(UserPlanAccessEntity::getUserId))
+                    .toList());
         }
         return sorted;
     }
@@ -154,11 +155,14 @@ public class AdminPlanService {
         }
 
         for (String userId : desired) {
-            if (currentByUserId.containsKey(userId)) continue;
-            UserPlanAccessEntity access = new UserPlanAccessEntity();
-            access.setId(ids.uid("acc"));
-            access.setUserId(userId);
-            access.setPlanId(planId);
+            UserPlanAccessEntity access = currentByUserId.get(userId);
+            if (access == null) {
+                access = new UserPlanAccessEntity();
+                access.setId(ids.uid("acc"));
+                access.setUserId(userId);
+                access.setPlanId(planId);
+                access.setAccessRole(PlanAccessRole.MEMBER);
+            }
             accessRepo.save(access);
         }
     }
@@ -195,7 +199,18 @@ public class AdminPlanService {
         }
     }
 
-    private AdminPlanDto toDto(PlanEntity plan, List<String> assignedUserIds) {
+    private AdminPlanDto toDto(PlanEntity plan, List<UserPlanAccessEntity> accessRows) {
+        List<String> assignedUserIds = accessRows.stream()
+                .map(UserPlanAccessEntity::getUserId)
+                .distinct()
+                .sorted()
+                .toList();
+        List<String> subscriptionAdminUserIds = accessRows.stream()
+                .filter(access -> access.getAccessRole() == PlanAccessRole.SUBSCRIPTION_ADMIN)
+                .map(UserPlanAccessEntity::getUserId)
+                .distinct()
+                .sorted()
+                .toList();
         return new AdminPlanDto(
                 plan.getId(),
                 plan.getName(),
@@ -206,7 +221,9 @@ public class AdminPlanService {
                 toString(plan.getArchivedAt()),
                 toString(plan.getPurgeAfter()),
                 assignedUserIds,
-                assignedUserIds.size()
+                assignedUserIds.size(),
+                subscriptionAdminUserIds,
+                subscriptionAdminUserIds.size()
         );
     }
 

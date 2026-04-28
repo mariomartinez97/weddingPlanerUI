@@ -1,5 +1,6 @@
 package com.example.weddingplanner.persistence.repo;
 
+import com.example.weddingplanner.persistence.entity.PlanAccessRole;
 import com.example.weddingplanner.persistence.entity.UserPlanAccessEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -11,4 +12,5 @@ public interface UserPlanAccessRepository extends JpaRepository<UserPlanAccessEn
     List<UserPlanAccessEntity> findAllByPlanId(String planId);
     List<UserPlanAccessEntity> findAllByPlanIdIn(Collection<String> planIds);
     boolean existsByUserIdAndPlanId(String userId, String planId);
+    boolean existsByUserIdAndPlanIdAndAccessRole(String userId, String planId, PlanAccessRole accessRole);
 }

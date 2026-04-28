@@ -4,6 +4,7 @@ import java.util.List;
 
 public record UpdateUserAccessRequest(
         Boolean isAdmin,
-        List<String> planIds
+        List<String> planIds,
+        List<String> subscriptionAdminPlanIds
 ) {
 }

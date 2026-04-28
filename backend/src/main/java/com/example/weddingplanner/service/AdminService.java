@@ -5,6 +5,7 @@ import com.example.weddingplanner.api.dto.CreateAdminUserRequest;
 import com.example.weddingplanner.api.dto.ResetUserPasswordRequest;
 import com.example.weddingplanner.api.dto.UpdateUserAccessRequest;
 import com.example.weddingplanner.persistence.entity.AppUserEntity;
+import com.example.weddingplanner.persistence.entity.PlanAccessRole;
 import com.example.weddingplanner.persistence.entity.PlanEntity;
 import com.example.weddingplanner.persistence.entity.PlanStatus;
 import com.example.weddingplanner.persistence.entity.UserPlanAccessEntity;
@@ -51,6 +52,9 @@ public class AdminService {
         requireAdmin();
         Map<String, List<String>> planIdsByUser = accessRepo.findAll().stream()
                 .collect(Collectors.groupingBy(UserPlanAccessEntity::getUserId, Collectors.mapping(UserPlanAccessEntity::getPlanId, Collectors.toList())));
+        Map<String, List<String>> subscriptionAdminPlanIdsByUser = accessRepo.findAll().stream()
+                .filter(access -> access.getAccessRole() == PlanAccessRole.SUBSCRIPTION_ADMIN)
+                .collect(Collectors.groupingBy(UserPlanAccessEntity::getUserId, Collectors.mapping(UserPlanAccessEntity::getPlanId, Collectors.toList())));
 
         return users.findAll().stream()
                 .map(u -> new AdminUserDto(
@@ -58,7 +62,8 @@ public class AdminService {
                         u.getEmail(),
                         u.getDisplayName(),
                         u.isAdmin(),
-                        planIdsByUser.getOrDefault(u.getId(), List.of())
+                        planIdsByUser.getOrDefault(u.getId(), List.of()),
+                        subscriptionAdminPlanIdsByUser.getOrDefault(u.getId(), List.of())
                 ))
                 .sorted(java.util.Comparator.comparing(AdminUserDto::email, String.CASE_INSENSITIVE_ORDER))
                 .toList();
@@ -75,6 +80,8 @@ public class AdminService {
         });
 
         List<String> planIds = normalizedPlanIds(req.planIds());
+        List<String> subscriptionAdminPlanIds = normalizedPlanIds(req.subscriptionAdminPlanIds());
+        planIds = union(planIds, subscriptionAdminPlanIds);
         validatePlans(planIds);
 
         AppUserEntity user = new AppUserEntity();
@@ -85,7 +92,7 @@ public class AdminService {
         user.setAdmin(Boolean.TRUE.equals(req.isAdmin()));
         users.save(user);
 
-        replaceAccess(user.getId(), planIds);
+        replaceAccess(user.getId(), planIds, subscriptionAdminPlanIds);
         return toDto(user, planIds);
     }
 
@@ -95,6 +102,8 @@ public class AdminService {
         AppUserEntity user = users.findById(userId).orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "User not found"));
 
         List<String> planIds = normalizedPlanIds(req.planIds());
+        List<String> subscriptionAdminPlanIds = normalizedPlanIds(req.subscriptionAdminPlanIds());
+        planIds = union(planIds, subscriptionAdminPlanIds);
         validatePlans(planIds);
 
         if (req.isAdmin() != null) {
@@ -102,8 +111,8 @@ public class AdminService {
             users.save(user);
         }
 
-        replaceAccess(user.getId(), planIds);
-        return toDto(user, planIds);
+        replaceAccess(user.getId(), planIds, subscriptionAdminPlanIds);
+        return toDto(user, planIds, subscriptionAdminPlanIds);
     }
 
     @Transactional
@@ -130,9 +139,10 @@ public class AdminService {
         users.delete(user);
     }
 
-    private void replaceAccess(String userId, List<String> planIds) {
+    private void replaceAccess(String userId, List<String> planIds, List<String> subscriptionAdminPlanIds) {
         List<UserPlanAccessEntity> current = accessRepo.findAllByUserId(userId);
         Set<String> desired = new HashSet<>(planIds);
+        Set<String> desiredSubscriptionAdmins = new HashSet<>(subscriptionAdminPlanIds);
         Map<String, UserPlanAccessEntity> currentByPlanId = current.stream()
                 .collect(Collectors.toMap(UserPlanAccessEntity::getPlanId, access -> access, (left, right) -> left));
 
@@ -144,17 +154,29 @@ public class AdminService {
         }
 
         for (String planId : desired) {
-            if (currentByPlanId.containsKey(planId)) continue;
-            UserPlanAccessEntity access = new UserPlanAccessEntity();
-            access.setId(ids.uid("acc"));
-            access.setUserId(userId);
-            access.setPlanId(planId);
+            UserPlanAccessEntity access = currentByPlanId.get(planId);
+            if (access == null) {
+                access = new UserPlanAccessEntity();
+                access.setId(ids.uid("acc"));
+                access.setUserId(userId);
+                access.setPlanId(planId);
+            }
+            PlanAccessRole role = desiredSubscriptionAdmins.contains(planId) ? PlanAccessRole.SUBSCRIPTION_ADMIN : PlanAccessRole.MEMBER;
+            access.setAccessRole(role);
             accessRepo.save(access);
         }
     }
 
     private AdminUserDto toDto(AppUserEntity user, List<String> planIds) {
-        return new AdminUserDto(user.getId(), user.getEmail(), user.getDisplayName(), user.isAdmin(), planIds);
+        List<String> subscriptionAdminPlanIds = accessRepo.findAllByUserId(user.getId()).stream()
+                .filter(access -> access.getAccessRole() == PlanAccessRole.SUBSCRIPTION_ADMIN)
+                .map(UserPlanAccessEntity::getPlanId)
+                .toList();
+        return toDto(user, planIds, subscriptionAdminPlanIds);
+    }
+
+    private AdminUserDto toDto(AppUserEntity user, List<String> planIds, List<String> subscriptionAdminPlanIds) {
+        return new AdminUserDto(user.getId(), user.getEmail(), user.getDisplayName(), user.isAdmin(), planIds, subscriptionAdminPlanIds);
     }
 
     private void validatePlans(List<String> planIds) {
@@ -171,6 +193,10 @@ public class AdminService {
     private List<String> normalizedPlanIds(List<String> ids) {
         if (ids == null) return List.of();
         return ids.stream().filter(v -> v != null && !v.trim().isEmpty()).map(String::trim).distinct().toList();
+    }
+
+    private List<String> union(List<String> left, List<String> right) {
+        return java.util.stream.Stream.concat(left.stream(), right.stream()).distinct().toList();
     }
 
     private void requireAdmin() {

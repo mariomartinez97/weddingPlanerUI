@@ -45,6 +45,10 @@ export class SeatingService {
     await this.load();
   }
 
+  private setAssignments(assignments: SeatingAssignment[]) {
+    this.store$.next({ ...this.snapshot, assignments });
+  }
+
   setTables(tables: TableDef[]) {
     // prune assignments to removed invitees locally before sending full table replacement
     const inviteeIds = new Set(this.invites.snapshot.invitees.map(i => i.id));
@@ -56,18 +60,31 @@ export class SeatingService {
   }
 
   clearAssignments() {
+    const previous = this.snapshot.assignments;
+    this.setAssignments([]);
+
     void firstValueFrom(this.http.delete(`${API_BASE}/seating/assignments`))
-      .then(() => this.reload());
+      .then(() => this.reload())
+      .catch(() => this.setAssignments(previous));
   }
 
   assign(inviteeId: string, tableId: string) {
+    const previous = this.snapshot.assignments;
+    const next = previous.filter(a => a.inviteeId !== inviteeId);
+    this.setAssignments([...next, { inviteeId, tableId }]);
+
     void firstValueFrom(this.http.put(`${API_BASE}/seating/assignments/${inviteeId}`, { tableId }))
-      .then(() => this.reload());
+      .then(() => this.reload())
+      .catch(() => this.setAssignments(previous));
   }
 
   unassign(inviteeId: string) {
+    const previous = this.snapshot.assignments;
+    this.setAssignments(previous.filter(a => a.inviteeId !== inviteeId));
+
     void firstValueFrom(this.http.delete(`${API_BASE}/seating/assignments/${inviteeId}`))
-      .then(() => this.reload());
+      .then(() => this.reload())
+      .catch(() => this.setAssignments(previous));
   }
 
   clearAll() {

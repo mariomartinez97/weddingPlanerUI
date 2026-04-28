@@ -7,6 +7,7 @@ public record CreateAdminUserRequest(
         String displayName,
         String password,
         Boolean isAdmin,
-        List<String> planIds
+        List<String> planIds,
+        List<String> subscriptionAdminPlanIds
 ) {
 }

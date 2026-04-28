@@ -12,6 +12,8 @@ public record AdminPlanDto(
         String archivedAt,
         String purgeAfter,
         List<String> assignedUserIds,
-        int assignedUserCount
+        int assignedUserCount,
+        List<String> subscriptionAdminUserIds,
+        int subscriptionAdminUserCount
 ) {
 }

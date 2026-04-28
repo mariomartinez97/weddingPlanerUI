@@ -4,9 +4,11 @@ import com.example.weddingplanner.api.dto.AccessiblePlanDto;
 import com.example.weddingplanner.api.dto.AuthSessionDto;
 import com.example.weddingplanner.api.dto.AuthUserDto;
 import com.example.weddingplanner.api.dto.LoginRequest;
+import com.example.weddingplanner.api.dto.SignupRequest;
 import com.example.weddingplanner.config.AuthPrincipal;
 import com.example.weddingplanner.persistence.entity.AppUserEntity;
 import com.example.weddingplanner.persistence.entity.AuthSessionEntity;
+import com.example.weddingplanner.persistence.entity.PlanAccessRole;
 import com.example.weddingplanner.persistence.entity.PlanEntity;
 import com.example.weddingplanner.persistence.entity.PlanStatus;
 import com.example.weddingplanner.persistence.entity.UserPlanAccessEntity;
@@ -21,7 +23,10 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
@@ -61,15 +66,47 @@ public class AuthService {
             throw new ResponseStatusException(UNAUTHORIZED, "Invalid credentials");
         }
 
-        sessions.deleteByExpiresAtBefore(OffsetDateTime.now());
+        AuthSessionEntity session = createSession(user.getId());
 
-        AuthSessionEntity session = new AuthSessionEntity();
-        session.setId(ids.uid("sess"));
-        session.setUserId(user.getId());
-        session.setToken(UUID.randomUUID().toString());
-        session.setExpiresAt(OffsetDateTime.now().plusDays(30));
-        sessions.save(session);
+        return new AuthSessionDto(session.getToken(), toUserDto(user), accessiblePlans(user.getId()));
+    }
 
+    @Transactional
+    public AuthSessionDto signup(SignupRequest req) {
+        if (req == null || isBlank(req.fullName()) || isBlank(req.email()) || isBlank(req.password()) || isBlank(req.tier()) || isBlank(req.eventType())) {
+            throw new ResponseStatusException(BAD_REQUEST, "Full name, email, password, tier and event type are required");
+        }
+        String tier = req.tier().trim();
+        if (!List.of("Free", "Individual", "Pro").contains(tier)) {
+            throw new ResponseStatusException(BAD_REQUEST, "Invalid tier");
+        }
+
+        users.findByEmailIgnoreCase(req.email().trim()).ifPresent(u -> {
+            throw new ResponseStatusException(BAD_REQUEST, "Email already exists");
+        });
+
+        AppUserEntity user = new AppUserEntity();
+        user.setId(ids.uid("usr"));
+        user.setEmail(req.email().trim().toLowerCase());
+        user.setDisplayName(req.fullName().trim());
+        user.setPasswordHash(passwords.encode(req.password()));
+        user.setAdmin(false);
+        users.save(user);
+
+        PlanEntity plan = new PlanEntity();
+        plan.setId(ids.uid("plan"));
+        plan.setName(subscriptionName(req));
+        plan.setStatus(PlanStatus.ACTIVE);
+        plans.save(plan);
+
+        UserPlanAccessEntity access = new UserPlanAccessEntity();
+        access.setId(ids.uid("acc"));
+        access.setUserId(user.getId());
+        access.setPlanId(plan.getId());
+        access.setAccessRole(PlanAccessRole.SUBSCRIPTION_ADMIN);
+        accessRepo.save(access);
+
+        AuthSessionEntity session = createSession(user.getId());
         return new AuthSessionDto(session.getToken(), toUserDto(user), accessiblePlans(user.getId()));
     }
 
@@ -93,7 +130,7 @@ public class AuthService {
             if (!plans.existsByIdAndStatus(resolvedPlanId, PlanStatus.ACTIVE)) {
                 throw new ResponseStatusException(UNAUTHORIZED, "Plan access denied");
             }
-            if (!accessRepo.existsByUserIdAndPlanId(user.getId(), resolvedPlanId)) {
+            if (!user.isAdmin() && !accessRepo.existsByUserIdAndPlanId(user.getId(), resolvedPlanId)) {
                 throw new ResponseStatusException(UNAUTHORIZED, "Plan access denied");
             }
         }
@@ -112,18 +149,38 @@ public class AuthService {
     }
 
     private List<AccessiblePlanDto> accessiblePlans(String userId) {
-        List<String> planIds = accessRepo.findAllByUserId(userId).stream().map(UserPlanAccessEntity::getPlanId).toList();
+        List<UserPlanAccessEntity> accessRows = accessRepo.findAllByUserId(userId);
+        List<String> planIds = accessRows.stream().map(UserPlanAccessEntity::getPlanId).toList();
+        Map<String, UserPlanAccessEntity> accessByPlanId = accessRows.stream()
+                .collect(Collectors.toMap(UserPlanAccessEntity::getPlanId, Function.identity(), (left, right) -> left));
         return plans.findAllByIdInAndStatusOrderByNameAsc(planIds, PlanStatus.ACTIVE).stream()
-                .map(this::toPlanDto)
+                .map(plan -> toPlanDto(plan, accessByPlanId.get(plan.getId())))
                 .toList();
     }
 
     private AuthUserDto toUserDto(AppUserEntity user) {
-        return new AuthUserDto(user.getId(), user.getEmail(), user.getDisplayName(), user.isAdmin());
+        return new AuthUserDto(user.getId(), user.getEmail(), user.getDisplayName(), user.isAdmin(), user.isAdmin());
     }
 
-    private AccessiblePlanDto toPlanDto(PlanEntity plan) {
-        return new AccessiblePlanDto(plan.getId(), plan.getName());
+    private AccessiblePlanDto toPlanDto(PlanEntity plan, UserPlanAccessEntity access) {
+        PlanAccessRole role = access != null && access.getAccessRole() != null ? access.getAccessRole() : PlanAccessRole.MEMBER;
+        return new AccessiblePlanDto(plan.getId(), plan.getName(), role.name());
+    }
+
+    private AuthSessionEntity createSession(String userId) {
+        sessions.deleteByExpiresAtBefore(OffsetDateTime.now());
+
+        AuthSessionEntity session = new AuthSessionEntity();
+        session.setId(ids.uid("sess"));
+        session.setUserId(userId);
+        session.setToken(UUID.randomUUID().toString());
+        session.setExpiresAt(OffsetDateTime.now().plusDays(30));
+        return sessions.save(session);
+    }
+
+    private String subscriptionName(SignupRequest req) {
+        if (!isBlank(req.subscriptionName())) return req.subscriptionName().trim();
+        return req.fullName().trim() + " " + req.eventType().trim();
     }
 
     private static boolean isBlank(String value) {

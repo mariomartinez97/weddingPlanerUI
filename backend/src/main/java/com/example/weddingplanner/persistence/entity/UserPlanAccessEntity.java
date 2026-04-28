@@ -2,6 +2,8 @@ package com.example.weddingplanner.persistence.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
@@ -19,6 +21,10 @@ public class UserPlanAccessEntity {
     @Column(name = "plan_id", length = 50, nullable = false)
     private String planId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "access_role", length = 40, nullable = false)
+    private PlanAccessRole accessRole = PlanAccessRole.MEMBER;
+
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
 
@@ -27,4 +33,7 @@ public class UserPlanAccessEntity {
 
     public String getPlanId() { return planId; }
     public void setPlanId(String planId) { this.planId = planId; }
+
+    public PlanAccessRole getAccessRole() { return accessRole; }
+    public void setAccessRole(PlanAccessRole accessRole) { this.accessRole = accessRole; }
 }

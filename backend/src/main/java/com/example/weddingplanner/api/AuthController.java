@@ -2,6 +2,7 @@ package com.example.weddingplanner.api;
 
 import com.example.weddingplanner.api.dto.AuthSessionDto;
 import com.example.weddingplanner.api.dto.LoginRequest;
+import com.example.weddingplanner.api.dto.SignupRequest;
 import com.example.weddingplanner.service.AuthService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -20,6 +21,12 @@ public class AuthController {
     @ResponseStatus(HttpStatus.CREATED)
     public AuthSessionDto login(@RequestBody LoginRequest req) {
         return auth.login(req);
+    }
+
+    @PostMapping("/signup")
+    @ResponseStatus(HttpStatus.CREATED)
+    public AuthSessionDto signup(@RequestBody SignupRequest req) {
+        return auth.signup(req);
     }
 
     @GetMapping("/me")

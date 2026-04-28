@@ -7,6 +7,7 @@ public record AdminUserDto(
         String email,
         String displayName,
         boolean isAdmin,
-        List<String> planIds
+        List<String> planIds,
+        List<String> subscriptionAdminPlanIds
 ) {
 }
