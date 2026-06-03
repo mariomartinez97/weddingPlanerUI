@@ -1,9 +1,14 @@
 package com.example.weddingplanner.api;
 
 import com.example.weddingplanner.api.dto.AuthSessionDto;
+import com.example.weddingplanner.api.dto.AuthUserDto;
+import com.example.weddingplanner.api.dto.GoogleAuthRequest;
+import com.example.weddingplanner.api.dto.LinkGoogleRequest;
 import com.example.weddingplanner.api.dto.LoginRequest;
 import com.example.weddingplanner.api.dto.SignupRequest;
+import com.example.weddingplanner.config.RequestContext;
 import com.example.weddingplanner.service.AuthService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,6 +32,19 @@ public class AuthController {
     @ResponseStatus(HttpStatus.CREATED)
     public AuthSessionDto signup(@RequestBody SignupRequest req) {
         return auth.signup(req);
+    }
+
+    @PostMapping("/google")
+    public AuthSessionDto googleAuth(@Valid @RequestBody GoogleAuthRequest req) {
+        return "signup".equalsIgnoreCase(req.intent())
+                ? auth.signupWithGoogle(req.idToken())
+                : auth.loginWithGoogle(req.idToken());
+    }
+
+    @PostMapping("/link-google")
+    public AuthUserDto linkGoogle(@Valid @RequestBody LinkGoogleRequest req) {
+        String userId = RequestContext.getRequired().userId();
+        return auth.linkGoogleAccount(userId, req.idToken());
     }
 
     @GetMapping("/me")

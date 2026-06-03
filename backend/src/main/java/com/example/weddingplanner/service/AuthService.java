@@ -29,6 +29,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
+import static org.springframework.http.HttpStatus.CONFLICT;
+import static org.springframework.http.HttpStatus.NOT_FOUND;
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 @Service
@@ -39,6 +41,7 @@ public class AuthService {
     private final PlanRepository plans;
     private final AuthSessionRepository sessions;
     private final IdService ids;
+    private final GoogleAuthService googleAuth;
     private final BCryptPasswordEncoder passwords = new BCryptPasswordEncoder();
 
     public AuthService(
@@ -46,13 +49,15 @@ public class AuthService {
             UserPlanAccessRepository accessRepo,
             PlanRepository plans,
             AuthSessionRepository sessions,
-            IdService ids
+            IdService ids,
+            GoogleAuthService googleAuth
     ) {
         this.users = users;
         this.accessRepo = accessRepo;
         this.plans = plans;
         this.sessions = sessions;
         this.ids = ids;
+        this.googleAuth = googleAuth;
     }
 
     @Transactional
@@ -62,6 +67,9 @@ public class AuthService {
         }
 
         AppUserEntity user = users.findByEmailIgnoreCase(req.email().trim()).orElseThrow(() -> new ResponseStatusException(UNAUTHORIZED, "Invalid credentials"));
+        if (user.getPasswordHash() == null || user.getPasswordHash().isBlank()) {
+            throw new ResponseStatusException(BAD_REQUEST, "This account uses Google sign-in. Please log in with Google.");
+        }
         if (!passwords.matches(req.password(), user.getPasswordHash())) {
             throw new ResponseStatusException(UNAUTHORIZED, "Invalid credentials");
         }
@@ -120,6 +128,97 @@ public class AuthService {
         if (!isBlank(token)) sessions.deleteByToken(token);
     }
 
+    @Transactional
+    public AuthSessionDto loginWithGoogle(String idToken) {
+        GoogleAuthService.GoogleUserInfo info = googleAuth.verifyIdToken(idToken);
+
+        AppUserEntity user = users.findByEmailIgnoreCase(info.email()).orElse(null);
+        if (user == null) {
+            throw new ResponseStatusException(NOT_FOUND, "No account found for this email");
+        }
+
+        linkGoogleToUser(user, info);
+
+        AuthSessionEntity session = createSession(user.getId());
+        return new AuthSessionDto(session.getToken(), toUserDto(user), accessiblePlans(user.getId()));
+    }
+
+    @Transactional
+    public AuthSessionDto signupWithGoogle(String idToken) {
+        GoogleAuthService.GoogleUserInfo info = googleAuth.verifyIdToken(idToken);
+
+        AppUserEntity existing = users.findByEmailIgnoreCase(info.email()).orElse(null);
+        if (existing != null) {
+            linkGoogleToUser(existing, info);
+            AuthSessionEntity session = createSession(existing.getId());
+            return new AuthSessionDto(session.getToken(), toUserDto(existing), accessiblePlans(existing.getId()));
+        }
+
+        // Create new user
+        AppUserEntity user = new AppUserEntity();
+        user.setId(ids.uid("usr"));
+        user.setEmail(info.email().trim().toLowerCase());
+        user.setDisplayName(info.displayName() != null ? info.displayName() : info.email());
+        user.setPasswordHash(null);
+        user.setGoogleId(info.googleId());
+        user.setAvatarUrl(info.pictureUrl());
+        user.setAuthProvider("google");
+        user.setAdmin(false);
+        users.save(user);
+
+        // Create default plan
+        PlanEntity plan = new PlanEntity();
+        plan.setId(ids.uid("plan"));
+        plan.setName(user.getDisplayName() + " Plan");
+        plan.setStatus(PlanStatus.ACTIVE);
+        plans.save(plan);
+
+        UserPlanAccessEntity access = new UserPlanAccessEntity();
+        access.setId(ids.uid("acc"));
+        access.setUserId(user.getId());
+        access.setPlanId(plan.getId());
+        access.setAccessRole(PlanAccessRole.SUBSCRIPTION_ADMIN);
+        accessRepo.save(access);
+
+        AuthSessionEntity session = createSession(user.getId());
+        return new AuthSessionDto(session.getToken(), toUserDto(user), accessiblePlans(user.getId()));
+    }
+
+    @Transactional
+    public AuthUserDto linkGoogleAccount(String userId, String idToken) {
+        GoogleAuthService.GoogleUserInfo info = googleAuth.verifyIdToken(idToken);
+
+        AppUserEntity user = users.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(UNAUTHORIZED, "User not found"));
+
+        linkGoogleToUser(user, info);
+
+        return toUserDto(user);
+    }
+
+    private void linkGoogleToUser(AppUserEntity user, GoogleAuthService.GoogleUserInfo info) {
+        if (user.getGoogleId() != null && user.getGoogleId().equals(info.googleId())) {
+            return; // already linked to same account
+        }
+        if (user.getGoogleId() != null && !user.getGoogleId().equals(info.googleId())) {
+            throw new ResponseStatusException(CONFLICT, "Email already associated with another Google account");
+        }
+
+        // Check if this Google ID is already linked to a different user
+        users.findByGoogleId(info.googleId()).ifPresent(other -> {
+            if (!other.getId().equals(user.getId())) {
+                throw new ResponseStatusException(CONFLICT, "This Google account is linked to another user");
+            }
+        });
+
+        user.setGoogleId(info.googleId());
+        if (info.pictureUrl() != null) {
+            user.setAvatarUrl(info.pictureUrl());
+        }
+        user.setAuthProvider(user.getPasswordHash() != null && !user.getPasswordHash().isBlank() ? "both" : "google");
+        users.save(user);
+    }
+
     public AuthPrincipal authenticate(String token, String planId, boolean requiresPlan) {
         AppUserEntity user = resolveUserByToken(token);
         String resolvedPlanId = null;
@@ -159,7 +258,17 @@ public class AuthService {
     }
 
     private AuthUserDto toUserDto(AppUserEntity user) {
-        return new AuthUserDto(user.getId(), user.getEmail(), user.getDisplayName(), user.isAdmin(), user.isAdmin());
+        String provider = resolveAuthProvider(user);
+        return new AuthUserDto(user.getId(), user.getEmail(), user.getDisplayName(),
+                user.isAdmin(), user.isAdmin(), provider, user.getAvatarUrl());
+    }
+
+    private String resolveAuthProvider(AppUserEntity user) {
+        boolean hasPassword = user.getPasswordHash() != null && !user.getPasswordHash().isBlank();
+        boolean hasGoogle = user.getGoogleId() != null && !user.getGoogleId().isBlank();
+        if (hasPassword && hasGoogle) return "both";
+        if (hasGoogle) return "google";
+        return "email";
     }
 
     private AccessiblePlanDto toPlanDto(PlanEntity plan, UserPlanAccessEntity access) {

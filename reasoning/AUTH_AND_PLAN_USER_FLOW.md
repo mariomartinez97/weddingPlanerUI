@@ -18,11 +18,12 @@ The application now supports:
 ### 1. Login
 
 - The user lands on the login page.
-- They enter email and password.
-- The backend validates credentials against users stored in the same database.
+- They enter email and password, or click "Continue with Google."
+- For email/password: the backend validates credentials via BCrypt. If the user has no password (Google-only account), returns an error directing them to use Google sign-in.
+- For Google: the frontend collects a Google ID token via the Google Identity Services SDK. The backend verifies the token signature, audience, issuer, and expiry using `GoogleIdTokenVerifier`. If valid, links or creates the account.
 - If valid, the backend returns:
   - the auth token
-  - the logged-in user
+  - the logged-in user (now includes `authProvider` and `avatarUrl`)
   - the list of plans the user can access
 
 ### 2. Session Setup
@@ -151,9 +152,20 @@ Admin plan responses now include:
 ## Auth Behavior
 
 - `POST /api/auth/login` returns only active plans in the session payload
-- `GET /api/auth/me` returns only active plans in the session payload
+- `POST /api/auth/google` handles Google OAuth login/signup via an `intent` field ("login" or "signup"). Returns the same session shape as email login. Added to AuthFilter allowlist (unauthenticated).
+- `POST /api/auth/link-google` links a Google account to an existing authenticated session. Requires `X-Auth-Token`.
+- `GET /api/auth/me` returns only active plans in the session payload. Now includes `authProvider` and `avatarUrl` on the user object.
 - any plan-scoped request using `X-Plan-Id` for an inactive or archived plan is rejected
 - admin endpoints do not require `X-Plan-Id`; they only require a valid admin auth token
+
+### Google OAuth Account Linking Rules
+
+- `google_id` (Google `sub` claim) is the trust anchor, not email.
+- If a user already has a `google_id` matching the token → proceed to session creation.
+- If a user has `google_id = null` → link the Google account automatically.
+- If a user has a different `google_id` → reject with 409.
+- If the Google account is already linked to a different user → reject with 409.
+- Admin-invited users (email exists but no password or Google ID) are automatically linked when they sign up via Google, preserving existing plan access.
 
 ## Summary
 
@@ -172,3 +184,6 @@ Still not implemented:
 
 - hard deletion of plans
 - automated purge of archived plans after `purgeAfter`
+- "Set password" flow for Google-only users
+- Google account unlinking from account settings
+- Avatar display in toolbar/sidebar

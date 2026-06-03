@@ -28,6 +28,7 @@ public class AuthFilter extends OncePerRequestFilter {
                 || path.equals("/api/health")
                 || path.equals("/api/auth/login")
                 || path.equals("/api/auth/signup")
+                || path.equals("/api/auth/google")
                 || path.startsWith("/api/public/rsvp/");
     }
 
