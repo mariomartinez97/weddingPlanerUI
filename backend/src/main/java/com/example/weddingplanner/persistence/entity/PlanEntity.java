@@ -41,6 +41,9 @@ public class PlanEntity {
     @Column(name = "purge_after")
     private OffsetDateTime purgeAfter;
 
+    @Column(name = "invite_code", length = 20, unique = true)
+    private String inviteCode;
+
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
 
@@ -64,6 +67,9 @@ public class PlanEntity {
 
     public OffsetDateTime getPurgeAfter() { return purgeAfter; }
     public void setPurgeAfter(OffsetDateTime purgeAfter) { this.purgeAfter = purgeAfter; }
+
+    public String getInviteCode() { return inviteCode; }
+    public void setInviteCode(String inviteCode) { this.inviteCode = inviteCode; }
 
     @PrePersist
     void prePersist() {

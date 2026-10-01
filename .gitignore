@@ -2,6 +2,7 @@ frontend/node_modules/*
 frontend/.angular/*
 /.angular/*
 backend/target/*
+.vscode/
 *.DS_Store
 .DS_Store
 frontend/dist/*

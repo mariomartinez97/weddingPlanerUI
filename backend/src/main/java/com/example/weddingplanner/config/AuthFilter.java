@@ -27,7 +27,6 @@ public class AuthFilter extends OncePerRequestFilter {
         return "OPTIONS".equalsIgnoreCase(request.getMethod())
                 || path.equals("/api/health")
                 || path.equals("/api/auth/login")
-                || path.equals("/api/auth/signup")
                 || path.equals("/api/auth/google")
                 || path.startsWith("/api/public/rsvp/");
     }
@@ -39,7 +38,9 @@ public class AuthFilter extends OncePerRequestFilter {
             String token = request.getHeader("X-Auth-Token");
             String planId = request.getHeader("X-Plan-Id");
             String path = request.getRequestURI();
-            boolean requiresPlan = !path.startsWith("/api/auth/") && !path.startsWith("/api/admin/");
+            boolean requiresPlan = !path.startsWith("/api/auth/")
+                    && !path.startsWith("/api/admin/")
+                    && !path.startsWith("/api/plans/");
             RequestContext.set(authService.authenticate(token, planId, requiresPlan));
             filterChain.doFilter(request, response);
         } catch (ResponseStatusException ex) {

@@ -14,4 +14,6 @@ public interface PlanRepository extends JpaRepository<PlanEntity, String> {
     List<PlanEntity> findAllByOrderByNameAsc();
     boolean existsByIdAndStatus(String id, PlanStatus status);
     Optional<PlanEntity> findByIdAndStatus(String id, PlanStatus status);
+    Optional<PlanEntity> findByInviteCode(String inviteCode);
+    boolean existsByNameIgnoreCase(String name);
 }

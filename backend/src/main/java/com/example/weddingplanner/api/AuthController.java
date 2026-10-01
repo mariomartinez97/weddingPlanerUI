@@ -5,7 +5,6 @@ import com.example.weddingplanner.api.dto.AuthUserDto;
 import com.example.weddingplanner.api.dto.GoogleAuthRequest;
 import com.example.weddingplanner.api.dto.LinkGoogleRequest;
 import com.example.weddingplanner.api.dto.LoginRequest;
-import com.example.weddingplanner.api.dto.SignupRequest;
 import com.example.weddingplanner.config.RequestContext;
 import com.example.weddingplanner.service.AuthService;
 import jakarta.validation.Valid;
@@ -26,12 +25,6 @@ public class AuthController {
     @ResponseStatus(HttpStatus.CREATED)
     public AuthSessionDto login(@RequestBody LoginRequest req) {
         return auth.login(req);
-    }
-
-    @PostMapping("/signup")
-    @ResponseStatus(HttpStatus.CREATED)
-    public AuthSessionDto signup(@RequestBody SignupRequest req) {
-        return auth.signup(req);
     }
 
     @PostMapping("/google")

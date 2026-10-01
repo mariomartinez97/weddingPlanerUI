@@ -42,6 +42,7 @@ public class AuthService {
     private final AuthSessionRepository sessions;
     private final IdService ids;
     private final GoogleAuthService googleAuth;
+    private final PreapprovedEmailService preapprovedEmailService;
     private final BCryptPasswordEncoder passwords = new BCryptPasswordEncoder();
 
     public AuthService(
@@ -50,7 +51,8 @@ public class AuthService {
             PlanRepository plans,
             AuthSessionRepository sessions,
             IdService ids,
-            GoogleAuthService googleAuth
+            GoogleAuthService googleAuth,
+            PreapprovedEmailService preapprovedEmailService
     ) {
         this.users = users;
         this.accessRepo = accessRepo;
@@ -58,6 +60,7 @@ public class AuthService {
         this.sessions = sessions;
         this.ids = ids;
         this.googleAuth = googleAuth;
+        this.preapprovedEmailService = preapprovedEmailService;
     }
 
     @Transactional
@@ -150,11 +153,13 @@ public class AuthService {
         AppUserEntity existing = users.findByEmailIgnoreCase(info.email()).orElse(null);
         if (existing != null) {
             linkGoogleToUser(existing, info);
+            // Claim any pre-approved emails for this user
+            preapprovedEmailService.claimPreapprovals(existing.getEmail(), existing.getId());
             AuthSessionEntity session = createSession(existing.getId());
             return new AuthSessionDto(session.getToken(), toUserDto(existing), accessiblePlans(existing.getId()));
         }
 
-        // Create new user
+        // Create new user — no auto-plan creation
         AppUserEntity user = new AppUserEntity();
         user.setId(ids.uid("usr"));
         user.setEmail(info.email().trim().toLowerCase());
@@ -166,19 +171,8 @@ public class AuthService {
         user.setAdmin(false);
         users.save(user);
 
-        // Create default plan
-        PlanEntity plan = new PlanEntity();
-        plan.setId(ids.uid("plan"));
-        plan.setName(user.getDisplayName() + " Plan");
-        plan.setStatus(PlanStatus.ACTIVE);
-        plans.save(plan);
-
-        UserPlanAccessEntity access = new UserPlanAccessEntity();
-        access.setId(ids.uid("acc"));
-        access.setUserId(user.getId());
-        access.setPlanId(plan.getId());
-        access.setAccessRole(PlanAccessRole.SUBSCRIPTION_ADMIN);
-        accessRepo.save(access);
+        // Check and claim pre-approved emails
+        preapprovedEmailService.claimPreapprovals(user.getEmail(), user.getId());
 
         AuthSessionEntity session = createSession(user.getId());
         return new AuthSessionDto(session.getToken(), toUserDto(user), accessiblePlans(user.getId()));
